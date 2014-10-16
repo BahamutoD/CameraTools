@@ -37,14 +37,11 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\Games\KSP\KSP 0.24.2 32 bit\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>..\..\..\..\Games\KSP\KSP 0.25.0 - Mod Dev\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral">
       <Private>False</Private>
-      <Package>D:\Games\KSP\KSP 0.24.2 32 bit\KSP_Data\Managed\UnityEngine.dll</Package>
-    </Reference>
-    <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\..\..\Games\KSP\KSP 0.24.2 32 bit - mod dev\KSP_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <Package>D:\Games\KSP\KSP 0.25.0 - Mod Dev\KSP_Data\Managed\UnityEngine.dll</Package>
     </Reference>
   </ItemGroup>
 </Project>

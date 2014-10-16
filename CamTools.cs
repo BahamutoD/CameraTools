@@ -62,15 +62,24 @@ namespace CameraTools
 		float currentFOV = 60;
 		Vector3 manualPosition = Vector3.zero;
 		float freeMoveSpeed = 10;
+		string guiFreeMoveSpeed = "10";
 		float keyZoomSpeed = 1;
+		string guiKeyZoomSpeed = "1";
 		float zoomFactor = 1;
 		float zoomExp = 1;
 		bool enableKeypad = false;
 		float maxRelV = 2500;
+		
+		bool setPresetOffset = false;
+		Vector3 presetOffset = Vector3.zero;
 		bool manualOffset = false;
 		float manualOffsetForward = 500;
 		float manualOffsetRight = 50;
 		float manualOffsetUp = 5;
+		string guiOffsetForward = "500";
+		string guiOffsetRight = "50";
+		string guiOffsetUp = "5";
+		
 		Vector3 lastVesselPosition = Vector3.zero;
 		Vector3 lastTargetPosition = Vector3.zero;
 		bool hasTarget = false;
@@ -93,7 +102,8 @@ namespace CameraTools
 		bool waitingForPosition = false;
 		float waitDelayTimer = 0;
 			
-			
+		//floating origin shift handler
+		Vector3d lastOffset = FloatingOrigin.fetch.offset;
 		
 		void Start()
 		{
@@ -109,6 +119,7 @@ namespace CameraTools
 			GameEvents.onShowUI.Add(GameUIEnable);
 			GameEvents.onGamePause.Add (PostDeathRevert);
 			GameEvents.OnVesselRecoveryRequested.Add(PostDeathRevert);
+			GameEvents.onFloatingOriginShift.Add(OnFloatingOriginShift);
 			
 			
 			cameraParent = new GameObject();
@@ -125,6 +136,8 @@ namespace CameraTools
 		
 		void Update()
 		{
+			
+			
 			if(Input.GetKeyDown(KeyCode.KeypadDivide))
 			{
 				guiEnabled = !guiEnabled;	
@@ -183,7 +196,11 @@ namespace CameraTools
 			if(waitingForPosition && waitDelayTimer > 0.4f && Input.GetKeyDown(KeyCode.Mouse0))
 			{
 				Vector3 pos = GetPosFromMouse();
-				if(pos!=Vector3.zero && isStationaryCamera) flightCamera.transform.position = pos;
+				if(pos!=Vector3.zero)// && isStationaryCamera)
+				{
+					presetOffset = pos;
+					setPresetOffset = true;
+				}
 				else Debug.Log ("No pos from mouse click");
 				
 				waitingForPosition = false;
@@ -196,7 +213,13 @@ namespace CameraTools
 		
 		void FixedUpdate()
 		{
-			
+			/*
+			if(FloatingOrigin.fetch.offset!=lastOffset)
+			{
+				lastOffset = FloatingOrigin.fetch.offset;
+				OnFloatingOriginShift(lastOffset);
+			}
+			*/
 			
 			if(FlightGlobals.ActiveVessel != null && (vessel==null || vessel!=FlightGlobals.ActiveVessel))
 			{
@@ -206,7 +229,7 @@ namespace CameraTools
 			if(vessel!=null)
 			{
 				lastVesselPosition = vessel.transform.position;
-				cameraParent.transform.position = manualPosition + vessel.transform.position;	
+				cameraParent.transform.position = manualPosition + vessel.findWorldCenterOfMass() - vessel.rigidbody.velocity*Time.fixedDeltaTime;	
 			}
 				
 			
@@ -218,8 +241,10 @@ namespace CameraTools
 				
 				if(camTarget != null)
 				{
-					flightCamera.transform.rotation = Quaternion.LookRotation(camTarget.position - flightCamera.transform.position, cameraUp);
-					lastTargetPosition = camTarget.position;
+					Vector3 lookPosition = camTarget.position;
+					if(camTarget.rigidbody) lookPosition += camTarget.rigidbody.velocity * Time.fixedDeltaTime;
+					flightCamera.transform.rotation = Quaternion.LookRotation(lookPosition - flightCamera.transform.position, cameraUp);
+					lastTargetPosition = lookPosition;
 				}
 				else if(hasTarget) 
 				{
@@ -382,12 +407,17 @@ namespace CameraTools
 				
 				flightCamera.transform.parent = cameraParent.transform;
 				flightCamera.setTarget(null);
-				cameraParent.transform.position = vessel.transform.position;
+				cameraParent.transform.position = vessel.transform.position+vessel.rigidbody.velocity*Time.fixedDeltaTime;
 				manualPosition = Vector3.zero;
 				if(camTarget!=null) hasTarget = true;
 				else hasTarget = false;
 				Vector3 rightAxis = Quaternion.AngleAxis(-90, vessel.srf_velocity) * cameraUp;
-				if(autoFlybyPosition)
+				if(setPresetOffset)
+				{
+					flightCamera.transform.position = presetOffset;
+					setPresetOffset = false;
+				}
+				else if(autoFlybyPosition)
 				{
 					Vector3 clampedVelocity = Mathf.Clamp((float) vessel.srfSpeed, 0, maxRelV) * vessel.srf_velocity.normalized;
 					float clampedSpeed = clampedVelocity.magnitude;
@@ -481,7 +511,7 @@ namespace CameraTools
 			Vector3 mouseAim = new Vector3(Input.mousePosition.x/Screen.width, Input.mousePosition.y/Screen.height, 0);
 			Ray ray = FlightCamera.fetch.mainCamera.ViewportPointToRay(mouseAim);
 			RaycastHit hit;
-			if(Physics.Raycast(ray, out hit, Vessel.loadDistance, 557057))
+			if(Physics.Raycast(ray, out hit, 5000, 557057))
 			{
 				return 	hit.point - 10 * ray.direction;
 			}
@@ -532,7 +562,7 @@ namespace CameraTools
 			float contentTop = 20;
 			GUI.Label(new Rect(0, contentTop, windowWidth, 30), "Camera Tools", centerLabel);
 			line++;
-			
+			float parseResult;
 			//Stationary camera GUI
 			if(toolMode == ToolModes.StationaryCamera)
 			{	
@@ -583,6 +613,7 @@ namespace CameraTools
 				GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), "Camera Position:", leftLabel);
 				line++;
 				string posButtonText = "Set Position w/ Click";
+				if(setPresetOffset) posButtonText += " (Position Set.)";
 				if(waitingForPosition) posButtonText = "waiting...";
 				if(FlightGlobals.ActiveVessel!=null && GUI.Button(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight-2), posButtonText))
 				{
@@ -600,12 +631,26 @@ namespace CameraTools
 				if(manualOffset)
 				{
 					GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), 60, entryHeight), "Fwd:", leftLabel);
-					manualOffsetForward = float.Parse(GUI.TextField(new Rect(leftIndent+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), manualOffsetForward.ToString()));
+					guiOffsetForward = GUI.TextField(new Rect(leftIndent+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), guiOffsetForward.ToString());
+					if(float.TryParse(guiOffsetForward, out parseResult))
+					{
+						manualOffsetForward = parseResult;	
+					}
+					
 					GUI.Label(new Rect(leftIndent+(contentWidth/2), contentTop+(line*entryHeight), 60, entryHeight), "Right:", leftLabel);
-					manualOffsetRight = float.Parse(GUI.TextField(new Rect(leftIndent+(contentWidth/2)+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), manualOffsetRight.ToString()));
+					guiOffsetRight = GUI.TextField(new Rect(leftIndent+(contentWidth/2)+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), guiOffsetRight);
+					if(float.TryParse(guiOffsetRight, out parseResult))
+					{
+						manualOffsetRight = parseResult;	
+					}
+					
 					line++;
 					GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), 60, entryHeight), "Up:", leftLabel);
-					manualOffsetUp = float.Parse(GUI.TextField(new Rect(leftIndent+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), manualOffsetUp.ToString()));
+					guiOffsetUp = GUI.TextField(new Rect(leftIndent+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), guiOffsetUp);
+					if(float.TryParse(guiOffsetUp, out parseResult))
+					{
+						manualOffsetUp = parseResult;	
+					}
 					
 				}
 				else
@@ -644,11 +689,24 @@ namespace CameraTools
 				if(enableKeypad)
 				{
 					line++;
+					
 					GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth/2, entryHeight), "Move Speed:");
-					freeMoveSpeed = float.Parse(GUI.TextField(new Rect(leftIndent+contentWidth/2, contentTop+(line*entryHeight), contentWidth/2, entryHeight), freeMoveSpeed.ToString()));
+					guiFreeMoveSpeed = GUI.TextField(new Rect(leftIndent+contentWidth/2, contentTop+(line*entryHeight), contentWidth/2, entryHeight), guiFreeMoveSpeed);
+					if(float.TryParse(guiFreeMoveSpeed, out parseResult))
+					{
+						freeMoveSpeed = Mathf.Abs(parseResult);
+						guiFreeMoveSpeed = freeMoveSpeed.ToString();
+					}
+					
 					line++;
+					
 					GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth/2, entryHeight), "Zoom Speed:");
-					keyZoomSpeed = float.Parse(GUI.TextField(new Rect(leftIndent+contentWidth/2, contentTop+(line*entryHeight), contentWidth/2, entryHeight), keyZoomSpeed.ToString()));
+					guiKeyZoomSpeed = GUI.TextField(new Rect(leftIndent+contentWidth/2, contentTop+(line*entryHeight), contentWidth/2, entryHeight), guiKeyZoomSpeed);
+					if(float.TryParse(guiKeyZoomSpeed, out parseResult))
+					{
+						keyZoomSpeed = Mathf.Abs(parseResult);	
+						guiKeyZoomSpeed = keyZoomSpeed.ToString();
+					}
 				}
 				else
 				{
@@ -729,6 +787,17 @@ namespace CameraTools
 				referenceMode--;
 				if((int)referenceMode == -1) referenceMode = (ReferenceModes) length-1;
 			}
+		}
+		
+		void OnFloatingOriginShift(Vector3d offset)
+		{
+			/*
+			Debug.LogWarning ("======Floating origin shifted.======");
+			Debug.LogWarning ("======Passed offset: "+offset+"======");
+			Debug.LogWarning ("======FloatingOrigin offset: "+FloatingOrigin.fetch.offset+"======");
+			Debug.LogWarning("========Floating Origin threshold: "+FloatingOrigin.fetch.threshold+"==========");
+			*/
+			
 		}
 		
 	}
