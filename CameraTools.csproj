@@ -44,7 +44,4 @@
       <HintPath>C:\Games\KSP 1.0.2 - Mod Dev\KSP_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="SpringIVACamera.cs" />
-  </ItemGroup>
 </Project>

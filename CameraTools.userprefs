@@ -1,15 +1,15 @@
 ﻿<Properties>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" PreferredExecutionTarget="MonoDevelop.Default" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="CCInputUtils.cs">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="CamTools.cs">
     <Files>
-      <File FileName="CamTools.cs" Line="182" Column="7" />
-      <File FileName="CCInputUtils.cs" Line="23" Column="20" />
+      <File FileName="CamTools.cs" Line="886" Column="42" />
+      <File FileName="CCInputUtils.cs" Line="18" Column="4" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
         <State expanded="True">
           <Node name="CameraTools" expanded="True">
-            <Node name="CCInputUtils.cs" selected="True" />
+            <Node name="CamTools.cs" selected="True" />
           </Node>
         </State>
       </Pad>
