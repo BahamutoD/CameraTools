@@ -35,6 +35,8 @@
   <ItemGroup>
     <Compile Include="CamTools.cs" />
     <Compile Include="CCInputUtils.cs" />
+    <Compile Include="CTAtmosphericAudioController.cs" />
+    <Compile Include="CTPartAudioController.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">

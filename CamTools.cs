@@ -112,10 +112,21 @@ namespace CameraTools
 			
 		//floating origin shift handler
 		Vector3d lastOffset = FloatingOrigin.fetch.offset;
+
+		AudioSource[] audioSources;
+		float[] originalAudioSourceDoppler;
+		bool hasSetDoppler = false;
+		Transform airspeedNoiseTransform;
+		Vector3 origAirspeedNoiseLocalPos;
+
+		bool useAudioEffects = true;
+
+		public delegate void ResetCTools();
+		public static event ResetCTools OnResetCTools;
+
 		
 		void Start()
 		{
-			
 			windowRect = new Rect(Screen.width-windowWidth-5, 45, windowWidth, windowHeight);
 			isDefault = true;
 			flightCamera = FlightCamera.fetch;
@@ -402,6 +413,11 @@ namespace CameraTools
 				}
 				lastPosition = flightCamera.transform.position;
 				lastRotation = flightCamera.transform.rotation;
+
+				if(airspeedNoiseTransform)
+				{
+					airspeedNoiseTransform.position = vessel.transform.position;
+				}
 				
 			}
 			
@@ -430,8 +446,93 @@ namespace CameraTools
 			}
 			
 		}
+
+		void AddAtmoAudioControllers()
+		{
+			if(!useAudioEffects)
+			{
+				return;
+			}
+
+			foreach(var vessel in FlightGlobals.Vessels)
+			{
+				if(!vessel || !vessel.loaded || vessel.packed)
+				{
+					continue;
+				}
+
+				vessel.gameObject.AddComponent<CTAtmosphericAudioController>();
+			}
+		}
 		
-		
+		void SetDoppler()
+		{
+			if(hasSetDoppler)
+			{
+				return;
+			}
+
+			if(!useAudioEffects)
+			{
+				return;
+			}
+
+			audioSources = FindObjectsOfType<AudioSource>();
+			originalAudioSourceDoppler = new float[audioSources.Length];
+
+			for(int i = 0; i < audioSources.Length; i++)
+			{
+				originalAudioSourceDoppler[i] = audioSources[i].dopplerLevel;
+				audioSources[i].dopplerLevel = 1;
+
+				Debug.Log("AudioSource " + i + ": " + audioSources[i].gameObject.name);
+				if(audioSources[i].gameObject.name.Contains("gauge_gee") && audioSources[i].clip!=null)
+				{
+					Debug.Log("gauge_gee clip" + i + ": " + audioSources[i].clip.name);
+
+				}
+
+				if(audioSources[i].gameObject.name == "FX Sound")
+				{
+					airspeedNoiseTransform = audioSources[i].transform;
+					origAirspeedNoiseLocalPos = audioSources[i].transform.localPosition;
+				}
+
+				audioSources[i].bypassEffects = false;
+				
+				if(audioSources[i].gameObject.GetComponentInParent<Part>())
+				{
+					Debug.Log("Added CTPartAudioController to :" + audioSources[i].name);
+					CTPartAudioController pa = audioSources[i].gameObject.AddComponent<CTPartAudioController>();
+					pa.audioSource = audioSources[i];
+				}
+			}
+
+			hasSetDoppler = true;
+		}
+
+		void ResetDoppler()
+		{
+			if(!hasSetDoppler)
+			{
+				return;
+			}
+
+			for(int i = 0; i < audioSources.Length; i++)
+			{
+				if(audioSources[i] != null)
+				{
+					audioSources[i].dopplerLevel = originalAudioSourceDoppler[i];
+				}
+			}
+
+			if(airspeedNoiseTransform != null)
+			{
+				airspeedNoiseTransform.localPosition = origAirspeedNoiseLocalPos;
+			}
+
+			hasSetDoppler = false;
+		}
 
 		
 		void StationaryCamera()
@@ -509,7 +610,8 @@ namespace CameraTools
 					{
 						flightCamera.transform.position += (sideDistance * FlightGlobals.getUpAxis()) + (15 * Vector3.up);
 					}
-					
+
+
 				}
 				else if(manualOffset)
 				{
@@ -555,6 +657,9 @@ namespace CameraTools
 				
 				isStationaryCamera = true;
 				isDefault = false;
+
+				SetDoppler();
+				AddAtmoAudioControllers();
 			}
 			else
 			{
@@ -594,6 +699,12 @@ namespace CameraTools
 			isDefault = true;
 			
 			isStationaryCamera = false;
+
+			ResetDoppler();
+			if(OnResetCTools != null)
+			{
+				OnResetCTools();
+			}
 		}
 		
 		void SaveOriginalCamera()
@@ -683,7 +794,7 @@ namespace CameraTools
 			float parseResult;
 			//Stationary camera GUI
 			if(toolMode == ToolModes.StationaryCamera)
-			{	
+			{
 				GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), "Tool: Stationary Camera", leftLabel);
 				line++;
 				GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), "--------------------------", centerLabel);
@@ -711,6 +822,10 @@ namespace CameraTools
 				{
 					useOrbital = GUI.Toggle(new Rect(leftIndent, contentTop+(line*entryHeight),contentWidth, entryHeight), useOrbital, " Orbital");
 				}
+				line++;
+				line++;
+
+				useAudioEffects = GUI.Toggle(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), useAudioEffects, "Use Audio Effects");
 				line++;
 				line++;
 				
