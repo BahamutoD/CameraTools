@@ -17,7 +17,13 @@ namespace CameraTools
 			windAudioSource.minDistance = 10;
 			windAudioSource.maxDistance = 800;
 			windAudioSource.dopplerLevel = 1f;
-			windAudioSource.clip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/windloop");
+			AudioClip windclip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/windloop");
+			if(!windclip)
+			{
+				Destroy (this);
+				return;
+			}
+			windAudioSource.clip = windclip;
 
 			windHowlAudioSource = gameObject.AddComponent<AudioSource>();
 			windHowlAudioSource.minDistance = 10;
