@@ -1,17 +1,17 @@
 ﻿<Properties StartupItem="CameraTools.csproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="CTAtmosphericAudioController.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="CamTools.cs">
     <Files>
-      <File FileName="CamTools.cs" Line="507" Column="39" />
-      <File FileName="CTAtmosphericAudioController.cs" Line="52" Column="43" />
-      <File FileName="CTPartAudioController.cs" Line="60" Column="77" />
+      <File FileName="CamTools.cs" Line="643" Column="47" />
+      <File FileName="CTAtmosphericAudioController.cs" Line="20" Column="46" />
+      <File FileName="CTPartAudioController.cs" Line="13" Column="13" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
         <State name="__root__">
           <Node name="CameraTools" expanded="True">
             <Node name="CameraTools" expanded="True">
-              <Node name="CTAtmosphericAudioController.cs" selected="True" />
+              <Node name="CamTools.cs" selected="True" />
             </Node>
           </Node>
         </State>

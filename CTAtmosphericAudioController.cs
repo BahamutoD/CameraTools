@@ -8,15 +8,20 @@ namespace CameraTools
 		AudioSource windAudioSource;
 		AudioSource windHowlAudioSource;
 		AudioSource windTearAudioSource;
+
+		AudioSource sonicBoomSource;
+
 		Vessel vessel;
+
+		bool playedBoom = false;
 
 		void Awake()
 		{
 			vessel = GetComponent<Vessel>();
 			windAudioSource = gameObject.AddComponent<AudioSource>();
 			windAudioSource.minDistance = 10;
-			windAudioSource.maxDistance = 800;
-			windAudioSource.dopplerLevel = 1f;
+			windAudioSource.maxDistance = 10000;
+			windAudioSource.dopplerLevel = .35f;
 			AudioClip windclip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/windloop");
 			if(!windclip)
 			{
@@ -27,40 +32,53 @@ namespace CameraTools
 
 			windHowlAudioSource = gameObject.AddComponent<AudioSource>();
 			windHowlAudioSource.minDistance = 10;
-			windHowlAudioSource.maxDistance = 800;
-			windHowlAudioSource.dopplerLevel = 1f;
+			windHowlAudioSource.maxDistance = 7000;
+			windHowlAudioSource.dopplerLevel = .5f;
 			windHowlAudioSource.pitch = 0.25f;
 			windHowlAudioSource.clip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/windhowl");
 
 			windTearAudioSource = gameObject.AddComponent<AudioSource>();
-			windTearAudioSource.minDistance = 1;
+			windTearAudioSource.minDistance = 10;
 			windTearAudioSource.maxDistance = 5000;
-			windTearAudioSource.dopplerLevel = 0.85f;
+			windTearAudioSource.dopplerLevel = 0.45f;
 			windTearAudioSource.pitch = 0.65f;
 			windTearAudioSource.clip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/windtear");
 
 
+			sonicBoomSource = new GameObject().AddComponent<AudioSource>();
+			sonicBoomSource.transform.parent = vessel.transform;
+			sonicBoomSource.transform.localPosition = Vector3.zero;
+			sonicBoomSource.minDistance = 10;
+			sonicBoomSource.maxDistance = 10000;
+			sonicBoomSource.dopplerLevel = 0;
+			sonicBoomSource.clip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/sonicBoom");
+			sonicBoomSource.volume = Mathf.Clamp01(vessel.GetTotalMass()/6f);
+			sonicBoomSource.Stop();
+
+
+			float angleToCam = Vector3.Angle(vessel.srf_velocity, FlightCamera.fetch.mainCamera.transform.position - vessel.transform.position);
+			angleToCam = Mathf.Clamp(angleToCam, 1, 180);
+			if(vessel.srfSpeed / (angleToCam) < 3.67f)
+			{
+				playedBoom = true;
+			}
+
 			CamTools.OnResetCTools += OnResetCTools;
-
-
 		}
 
 
 		void FixedUpdate()
 		{
+			if(!vessel)
+			{
+				return;
+			}
 			if(Time.timeScale > 0 && vessel.dynamicPressurekPa > 0)
 			{
 				float srfSpeed = (float)vessel.srfSpeed;
 				float angleToCam = Vector3.Angle(vessel.srf_velocity, FlightCamera.fetch.mainCamera.transform.position - vessel.transform.position);
 				angleToCam = Mathf.Clamp(angleToCam, 1, 180);
-
-				/*
-				float waveFrontFactor = (srfSpeed / (angleToCam) < 3.67f) ? 1 : 0;
-				float shockwaveFactor = Mathf.Clamp01((srfSpeed/380f)*waveFrontFactor);
-
-				float lagAudioFactor = Mathf.Clamp01(75000 / (Vector3.Distance(vessel.transform.position, FlightCamera.fetch.mainCamera.transform.position) * srfSpeed));
-				if(angleToCam > 90) lagAudioFactor = 1;
-				*/
+			
 
 				float lagAudioFactor = (75000 / (Vector3.Distance(vessel.transform.position, FlightCamera.fetch.mainCamera.transform.position) * srfSpeed * angleToCam / 90));
 				lagAudioFactor = Mathf.Clamp(lagAudioFactor * lagAudioFactor * lagAudioFactor, 0, 4);
@@ -68,15 +86,26 @@ namespace CameraTools
 
 				float waveFrontFactor = ((3.67f * angleToCam)/srfSpeed);
 				waveFrontFactor = Mathf.Clamp(waveFrontFactor * waveFrontFactor * waveFrontFactor, 0, 2);
-				if(vessel.srfSpeed > 330)
+
+				if(vessel.srfSpeed > CamTools.speedOfSound)
 				{
-					//waveFrontFactor =  (srfSpeed / (angleToCam) < 3.67f) ? srfSpeed/15 : 0;
-					waveFrontFactor = waveFrontFactor*waveFrontFactor*waveFrontFactor;
+					waveFrontFactor =  (srfSpeed / (angleToCam) < 3.67f) ? waveFrontFactor + ((srfSpeed/(float)CamTools.speedOfSound)*waveFrontFactor) : 0;
+					if(waveFrontFactor > 0)
+					{
+						if(!playedBoom)
+						{
+							sonicBoomSource.transform.position = vessel.transform.position - (vessel.srf_velocity);
+							sonicBoomSource.PlayOneShot(sonicBoomSource.clip);
+							playedBoom = true;
+						}
+					}
+					else
+					{
+
+					}
 				}
 
 				lagAudioFactor *= waveFrontFactor;
-
-
 
 				float sqrAccel = (float)vessel.acceleration.sqrMagnitude;
 
@@ -84,12 +113,13 @@ namespace CameraTools
 				if(!windAudioSource.isPlaying)
 				{
 					windAudioSource.Play();
-					Debug.Log("vessel dynamic pressure: " + vessel.dynamicPressurekPa);
+					//Debug.Log("vessel dynamic pressure: " + vessel.dynamicPressurekPa);
 				}
 				float pressureFactor = Mathf.Clamp01((float)vessel.dynamicPressurekPa / 50f);
 				float massFactor = Mathf.Clamp01(vessel.GetTotalMass() / 60f);
 				float gFactor = Mathf.Clamp(sqrAccel / 225, 0, 1.5f);
 				windAudioSource.volume = massFactor * pressureFactor * gFactor * lagAudioFactor;
+
 
 				//windhowl
 				if(!windHowlAudioSource.isPlaying)
@@ -99,6 +129,7 @@ namespace CameraTools
 				float pressureFactor2 = Mathf.Clamp01((float)vessel.dynamicPressurekPa / 20f);
 				float massFactor2 = Mathf.Clamp01(vessel.GetTotalMass() / 30f);
 				windHowlAudioSource.volume = pressureFactor2 * massFactor2 * lagAudioFactor;
+				windHowlAudioSource.maxDistance = Mathf.Clamp(lagAudioFactor * 2500, windTearAudioSource.minDistance, 16000);
 
 				//windtear
 				if(!windTearAudioSource.isPlaying)
@@ -111,7 +142,7 @@ namespace CameraTools
 				windTearAudioSource.volume = pressureFactor3 * massFactor3;
 
 				windTearAudioSource.minDistance = lagAudioFactor * 1;
-				windTearAudioSource.maxDistance = Mathf.Clamp(lagAudioFactor * 2500, windTearAudioSource.minDistance, 3000);
+				windTearAudioSource.maxDistance = Mathf.Clamp(lagAudioFactor * 2500, windTearAudioSource.minDistance, 16000);
 			
 			}
 			else
@@ -135,6 +166,10 @@ namespace CameraTools
 
 		void OnDestroy()
 		{
+			if(sonicBoomSource)
+			{
+				Destroy(sonicBoomSource.gameObject);
+			}
 			CamTools.OnResetCTools -= OnResetCTools;
 		}
 

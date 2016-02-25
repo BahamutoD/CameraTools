@@ -121,9 +121,14 @@ namespace CameraTools
 
 		bool useAudioEffects = true;
 
+		//camera shake
+		Vector3 shakeOffset = Vector3.zero;
+		float shakeMagnitude = 0;
+		float shakeMultiplier = 1;
+
 		public delegate void ResetCTools();
 		public static event ResetCTools OnResetCTools;
-
+		public static double speedOfSound = 330;
 		
 		void Start()
 		{
@@ -166,10 +171,6 @@ namespace CameraTools
 				{
 					RevertCamera();	
 				}
-				//else if(Input.GetKeyDown(KeyCode.F9) || Input.GetKey(KeyCode.Escape))
-				//{
-				//	if(isStationaryCamera) RevertCamera();	
-				//}
 				else if(Input.GetKeyDown(cameraKey))
 				{
 					if(toolMode == ToolModes.StationaryCamera)
@@ -249,35 +250,44 @@ namespace CameraTools
 			
 			
 		}
+
+		public void ShakeCamera(float magnitude)
+		{
+			shakeMagnitude = Mathf.Max(shakeMagnitude, magnitude);
+		}
 		
 		
 		int posCounter = 0;//debug
 		void FixedUpdate()
 		{
-			/*
-			if(FloatingOrigin.fetch.offset!=lastOffset)
+			if(!FlightGlobals.ready)
 			{
-				lastOffset = FloatingOrigin.fetch.offset;
-				OnFloatingOriginShift(lastOffset);
+				return;
 			}
-			*/
 
 			if(FlightGlobals.ActiveVessel != null && (vessel==null || vessel!=FlightGlobals.ActiveVessel))
 			{
 				vessel = FlightGlobals.ActiveVessel;
 			}
+
+
 			
-			if(vessel!=null)
+			if(vessel != null)
 			{
 				lastVesselPosition = vessel.transform.position;
-				cameraParent.transform.position = manualPosition + (vessel.findWorldCenterOfMass() - vessel.rigidbody.velocity*Time.fixedDeltaTime);	
+				cameraParent.transform.position = manualPosition + (vessel.findWorldCenterOfMass() - vessel.rigidbody.velocity * Time.fixedDeltaTime);	
 			}
-				
-			
-			
+
+
 			//stationary camera
 			if(isStationaryCamera)
 			{
+				if(useAudioEffects)
+				{
+					speedOfSound = 233 * Math.Sqrt(1+(FlightGlobals.getExternalTemperature(vessel.GetWorldPos3D(), vessel.mainBody)/273.15));
+					//Debug.Log("speed of sound: " + speedOfSound);
+				}
+				
 				if(posCounter < 3)
 				{
 					posCounter++;
@@ -301,6 +311,8 @@ namespace CameraTools
 				{
 					flightCamera.transform.rotation = Quaternion.LookRotation(lastTargetPosition - flightCamera.transform.position, cameraUp);
 				}
+
+				UpdateCameraShake();
 				
 				if(vessel!=null)
 				{
@@ -410,6 +422,7 @@ namespace CameraTools
 				{
 					currentFOV = Mathf.Lerp(currentFOV, manualFOV, 0.1f);
 					flightCamera.SetFoV(currentFOV);	
+					zoomFactor = 60 / currentFOV;
 				}
 				lastPosition = flightCamera.transform.position;
 				lastRotation = flightCamera.transform.rotation;
@@ -418,7 +431,17 @@ namespace CameraTools
 				{
 					airspeedNoiseTransform.position = vessel.transform.position;
 				}
-				
+
+
+				//vessel camera shake
+				if(shakeMultiplier > 0)
+				{
+					foreach(var v in FlightGlobals.Vessels)
+					{
+						if(!v || !v.loaded || v.packed) continue;
+						VesselCameraShake(v);
+					}
+				}
 			}
 			
 			
@@ -426,9 +449,6 @@ namespace CameraTools
 			{
 				RevertCamera();	
 			}
-			
-
-			
 		}
 		
 		void LateUpdate()
@@ -445,6 +465,71 @@ namespace CameraTools
 				diedTime = Time.time;
 			}
 			
+		}
+
+		void UpdateCameraShake()
+		{
+			if(shakeMultiplier > 0)
+			{
+				if(shakeMagnitude > 0.1f)
+				{
+					Vector3 shakeAxis = UnityEngine.Random.onUnitSphere;
+					shakeOffset = Mathf.Sin(shakeMagnitude * 20 * Time.time) * (shakeMagnitude / 10) * shakeAxis;
+				}
+
+
+				flightCamera.transform.rotation = Quaternion.AngleAxis((shakeMultiplier/2) * shakeMagnitude / 50f, Vector3.ProjectOnPlane(UnityEngine.Random.onUnitSphere, flightCamera.transform.forward)) * flightCamera.transform.rotation;
+			}
+
+			shakeMagnitude = Mathf.Lerp(shakeMagnitude, 0, 5*Time.fixedDeltaTime);
+		}
+
+		public void VesselCameraShake(Vessel vessel)
+		{
+			//shake
+			float camDistance = Vector3.Distance(flightCamera.transform.position, vessel.findWorldCenterOfMass());
+
+			float distanceFactor = 50f / camDistance;
+			float fovFactor = 2f / zoomFactor;
+			float thrustFactor = GetTotalThrust() / 1000f;
+
+			float atmosphericFactor = (float)vessel.dynamicPressurekPa / 2f;
+
+			float angleToCam = Vector3.Angle(vessel.srf_velocity, FlightCamera.fetch.mainCamera.transform.position - vessel.transform.position);
+			angleToCam = Mathf.Clamp(angleToCam, 1, 180);
+
+			float srfSpeed = (float)vessel.srfSpeed;
+
+			float lagAudioFactor = (75000 / (Vector3.Distance(vessel.transform.position, FlightCamera.fetch.mainCamera.transform.position) * srfSpeed * angleToCam / 90));
+			lagAudioFactor = Mathf.Clamp(lagAudioFactor * lagAudioFactor * lagAudioFactor, 0, 4);
+			lagAudioFactor += srfSpeed / 230;
+
+			float waveFrontFactor = ((3.67f * angleToCam) / srfSpeed);
+			waveFrontFactor = Mathf.Clamp(waveFrontFactor * waveFrontFactor * waveFrontFactor, 0, 2);
+			if(vessel.srfSpeed > 330)
+			{
+				waveFrontFactor = (srfSpeed / (angleToCam) < 3.67f) ? srfSpeed / 15 : 0;
+			}
+
+			lagAudioFactor *= waveFrontFactor;
+
+			lagAudioFactor = Mathf.Clamp01(lagAudioFactor) * distanceFactor * fovFactor;
+
+			atmosphericFactor *= lagAudioFactor;
+
+			thrustFactor *= distanceFactor * fovFactor * lagAudioFactor;
+
+			ShakeCamera(atmosphericFactor + thrustFactor);
+		}
+
+		float GetTotalThrust()
+		{
+			float total = 0;
+			foreach(var engine in vessel.FindPartModulesImplementing<ModuleEngines>())
+			{
+				total += engine.finalThrust;
+			}
+			return total;
 		}
 
 		void AddAtmoAudioControllers()
@@ -485,24 +570,11 @@ namespace CameraTools
 				originalAudioSourceDoppler[i] = audioSources[i].dopplerLevel;
 				audioSources[i].dopplerLevel = 1;
 
-				Debug.Log("AudioSource " + i + ": " + audioSources[i].gameObject.name);
-				if(audioSources[i].gameObject.name.Contains("gauge_gee") && audioSources[i].clip!=null)
-				{
-					Debug.Log("gauge_gee clip" + i + ": " + audioSources[i].clip.name);
-
-				}
-
-				if(audioSources[i].gameObject.name == "FX Sound")
-				{
-					airspeedNoiseTransform = audioSources[i].transform;
-					origAirspeedNoiseLocalPos = audioSources[i].transform.localPosition;
-				}
-
 				audioSources[i].bypassEffects = false;
 				
 				if(audioSources[i].gameObject.GetComponentInParent<Part>())
 				{
-					Debug.Log("Added CTPartAudioController to :" + audioSources[i].name);
+					//Debug.Log("Added CTPartAudioController to :" + audioSources[i].name);
 					CTPartAudioController pa = audioSources[i].gameObject.AddComponent<CTPartAudioController>();
 					pa.audioSource = audioSources[i];
 				}
@@ -557,21 +629,8 @@ namespace CameraTools
 				hasTarget = (camTarget != null) ? true : false;
 				
 				
-				Vector3 rightAxis;
-				if(referenceMode == ReferenceModes.Surface && vessel.horizontalSrfSpeed > 2)
-				{
-					rightAxis = Quaternion.AngleAxis(-90, vessel.srf_velocity) * cameraUp;
-				}
-				else
-				{
-					rightAxis = Quaternion.AngleAxis(-90, vessel.obt_velocity) * cameraUp;
-				}
-				
-				if(flightCamera.autoMode == FlightCamera.Modes.FREE)
-				{
-					Vector3 cameraUpRef = cameraUp;
-					Vector3.OrthoNormalize(ref rightAxis, ref cameraUpRef);	
-				}
+				Vector3 rightAxis = -Vector3.Cross(vessel.srf_velocity, vessel.upAxis).normalized;
+				//Vector3 upAxis = flightCamera.transform.up;
 				
 
 				if(autoFlybyPosition)
@@ -588,11 +647,11 @@ namespace CameraTools
 					flightCamera.transform.rotation = Quaternion.LookRotation(vessel.transform.position - flightCamera.transform.position, cameraUp);
 					
 					
-					if(referenceMode == ReferenceModes.Surface && vessel.srfSpeed > 4)
+					if(referenceMode == ReferenceModes.Surface && vessel.srfSpeed > 0)
 					{
 						flightCamera.transform.position = vessel.transform.position + (distanceAhead * vessel.srf_velocity.normalized);
 					}
-					else if(referenceMode == ReferenceModes.Orbit && vessel.obt_speed > 4)
+					else if(referenceMode == ReferenceModes.Orbit && vessel.obt_speed > 0)
 					{
 						flightCamera.transform.position = vessel.transform.position + (distanceAhead * vessel.obt_velocity.normalized);
 					}
@@ -827,6 +886,10 @@ namespace CameraTools
 
 				useAudioEffects = GUI.Toggle(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), useAudioEffects, "Use Audio Effects");
 				line++;
+				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Camera shake:");
+				line++;
+				shakeMultiplier = GUI.HorizontalSlider(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth - 45, entryHeight), shakeMultiplier, 0f, 10f);
+				GUI.Label(new Rect(leftIndent + contentWidth - 40, contentTop + (line * entryHeight), 40, entryHeight), shakeMultiplier.ToString("0.00") + "x");
 				line++;
 				
 					

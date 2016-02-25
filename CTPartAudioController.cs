@@ -10,11 +10,14 @@ namespace CameraTools
 
 		public AudioSource audioSource;
 
+
 		float origMinDist = 1;
 		float origMaxDist = 1;
 
-		float modMinDist = 1;
-		float modMaxDist = 1500;
+		float modMinDist = 10;
+		float modMaxDist = 10000;
+
+		AudioRolloffMode origRolloffMode;
 
 		void Awake()
 		{
@@ -34,6 +37,10 @@ namespace CameraTools
 
 			origMinDist = audioSource.minDistance;
 			origMaxDist = audioSource.maxDistance;
+			origRolloffMode = audioSource.rolloffMode;
+			audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
+
+	
 		}
 
 		void FixedUpdate()
@@ -43,6 +50,13 @@ namespace CameraTools
 				Destroy(this);
 				return;
 			}
+
+			if(!part || !vessel)
+			{
+				Destroy(this);
+				return;
+			}
+
 
 			float angleToCam = Vector3.Angle(vessel.srf_velocity, FlightCamera.fetch.mainCamera.transform.position - vessel.transform.position);
 			angleToCam = Mathf.Clamp(angleToCam, 1, 180);
@@ -55,27 +69,30 @@ namespace CameraTools
 
 			float waveFrontFactor = ((3.67f * angleToCam)/srfSpeed);
 			waveFrontFactor = Mathf.Clamp(waveFrontFactor * waveFrontFactor * waveFrontFactor, 0, 2);
-			if(vessel.srfSpeed > 330)
+			if(vessel.srfSpeed > CamTools.speedOfSound)
 			{
-				waveFrontFactor = (srfSpeed / (angleToCam) < 3.67f) ? srfSpeed / 15 : 0;
+				waveFrontFactor = (srfSpeed / (angleToCam) < 3.67f) ? waveFrontFactor + ((srfSpeed/(float)CamTools.speedOfSound)*waveFrontFactor): 0;
 			}
 
 			lagAudioFactor *= waveFrontFactor;
 		
 			audioSource.minDistance = modMinDist * lagAudioFactor;
-			audioSource.maxDistance = Mathf.Clamp(modMaxDist * lagAudioFactor, audioSource.minDistance, 3000);
+			audioSource.maxDistance = Mathf.Clamp(modMaxDist * lagAudioFactor, audioSource.minDistance, 16000);
 				
 		}
 
 		void OnDestroy()
 		{
 			CamTools.OnResetCTools -= OnResetCTools;
+
+	
 		}
 
 		void OnResetCTools()
 		{
 			audioSource.minDistance = origMinDist;
 			audioSource.maxDistance = origMaxDist;
+			audioSource.rolloffMode = origRolloffMode;
 			Destroy(this);
 		}
 
