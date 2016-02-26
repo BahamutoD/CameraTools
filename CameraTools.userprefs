@@ -1,22 +1,11 @@
 ﻿<Properties StartupItem="CameraTools.csproj">
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="CamTools.cs">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="CTAtmosphericAudioController.cs">
     <Files>
-      <File FileName="CamTools.cs" Line="643" Column="47" />
-      <File FileName="CTAtmosphericAudioController.cs" Line="20" Column="46" />
-      <File FileName="CTPartAudioController.cs" Line="13" Column="13" />
+      <File FileName="CamTools.cs" Line="1109" Column="13" />
+      <File FileName="CTAtmosphericAudioController.cs" Line="117" Column="6" />
+      <File FileName="CTPartAudioController.cs" Line="84" Column="12" />
     </Files>
-    <Pads>
-      <Pad Id="ProjectPad">
-        <State name="__root__">
-          <Node name="CameraTools" expanded="True">
-            <Node name="CameraTools" expanded="True">
-              <Node name="CamTools.cs" selected="True" />
-            </Node>
-          </Node>
-        </State>
-      </Pad>
-    </Pads>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />

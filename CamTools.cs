@@ -7,6 +7,8 @@ namespace CameraTools
 	[KSPAddon(KSPAddon.Startup.Flight, false)]
 	public class CamTools : MonoBehaviour
 	{
+		public static CamTools fetch;
+
 		GameObject cameraParent;
 		Vessel vessel;
 		Vector3 origPosition;
@@ -16,7 +18,9 @@ namespace CameraTools
 		FlightCamera flightCamera;
 		
 		Transform camTarget = null;
-		ReferenceModes referenceMode = ReferenceModes.Surface;
+
+		[CTPersistantField]
+		public ReferenceModes referenceMode = ReferenceModes.Surface;
 		Vector3 cameraUp = Vector3.up;
 
 		string fmUpKey = "[7]";
@@ -44,34 +48,44 @@ namespace CameraTools
 		float draggableHeight = 40;
 		float leftIndent = 8;
 		float entryHeight = 20;
-		ToolModes toolMode = ToolModes.StationaryCamera;
+		[CTPersistantField]
+		public ToolModes toolMode = ToolModes.StationaryCamera;
 		Rect windowRect = new Rect(0,0,0,0);
 		bool gameUIToggle = true;
 		bool hasFixedWindow = false;
 		
 		//stationary camera vars
-		bool autoFlybyPosition = false;
-		bool autoFOV = false;
+		[CTPersistantField]
+		public bool autoFlybyPosition = false;
+		[CTPersistantField]
+		public bool autoFOV = false;
 		float manualFOV = 60;
 		float currentFOV = 60;
 		Vector3 manualPosition = Vector3.zero;
-		float freeMoveSpeed = 10;
+		[CTPersistantField]
+		public float freeMoveSpeed = 10;
 		string guiFreeMoveSpeed = "10";
-		float keyZoomSpeed = 1;
+		[CTPersistantField]
+		public float keyZoomSpeed = 1;
 		string guiKeyZoomSpeed = "1";
 		float zoomFactor = 1;
 		float zoomExp = 1;
-		bool enableKeypad = false;
+		[CTPersistantField]
+		public bool enableKeypad = false;
 		float maxRelV = 2500;
 		
 		bool setPresetOffset = false;
 		Vector3 presetOffset = Vector3.zero;
 		bool hasSavedRotation = false;
 		Quaternion savedRotation;
-		bool manualOffset = false;
-		float manualOffsetForward = 500;
-		float manualOffsetRight = 50;
-		float manualOffsetUp = 5;
+		[CTPersistantField]
+		public bool manualOffset = false;
+		[CTPersistantField]
+		public float manualOffsetForward = 500;
+		[CTPersistantField]
+		public float manualOffsetRight = 50;
+		[CTPersistantField]
+		public float manualOffsetUp = 5;
 		string guiOffsetForward = "500";
 		string guiOffsetRight = "50";
 		string guiOffsetUp = "5";
@@ -79,7 +93,10 @@ namespace CameraTools
 		Vector3 lastVesselPosition = Vector3.zero;
 		Vector3 lastTargetPosition = Vector3.zero;
 		bool hasTarget = false;
-		bool useOrbital = false;
+
+		[CTPersistantField]
+		public bool useOrbital = false;
+
 		bool hasDied = false;
 		float diedTime = 0;
 		//vessel reference mode
@@ -100,8 +117,10 @@ namespace CameraTools
 		bool mouseUp = false;
 
 		//Keys
-		string cameraKey = "home";
-		string revertKey = "end";
+		[CTPersistantField]
+		public string cameraKey = "home";
+		[CTPersistantField]
+		public string revertKey = "end";
 
 		//recording input for key binding
 		bool isRecordingInput = false;
@@ -116,20 +135,38 @@ namespace CameraTools
 		AudioSource[] audioSources;
 		float[] originalAudioSourceDoppler;
 		bool hasSetDoppler = false;
-		Transform airspeedNoiseTransform;
-		Vector3 origAirspeedNoiseLocalPos;
 
-		bool useAudioEffects = true;
+		[CTPersistantField]
+		public bool useAudioEffects = true;
 
 		//camera shake
 		Vector3 shakeOffset = Vector3.zero;
 		float shakeMagnitude = 0;
-		float shakeMultiplier = 1;
+		[CTPersistantField]
+		public float shakeMultiplier = 1;
 
 		public delegate void ResetCTools();
 		public static event ResetCTools OnResetCTools;
 		public static double speedOfSound = 330;
-		
+
+		void Awake()
+		{
+			if(fetch)
+			{
+				Destroy(fetch);
+			}
+
+			fetch = this;
+
+			CTPersistantField.Load();
+
+			guiOffsetForward = manualOffsetForward.ToString();
+			guiOffsetRight = manualOffsetRight.ToString();
+			guiOffsetUp = manualOffsetUp.ToString();
+			guiKeyZoomSpeed = keyZoomSpeed.ToString();
+			guiFreeMoveSpeed = freeMoveSpeed.ToString();
+		}
+
 		void Start()
 		{
 			windowRect = new Rect(Screen.width-windowWidth-5, 45, windowWidth, windowHeight);
@@ -427,10 +464,6 @@ namespace CameraTools
 				lastPosition = flightCamera.transform.position;
 				lastRotation = flightCamera.transform.rotation;
 
-				if(airspeedNoiseTransform)
-				{
-					airspeedNoiseTransform.position = vessel.transform.position;
-				}
 
 
 				//vessel camera shake
@@ -598,10 +631,7 @@ namespace CameraTools
 				}
 			}
 
-			if(airspeedNoiseTransform != null)
-			{
-				airspeedNoiseTransform.localPosition = origAirspeedNoiseLocalPos;
-			}
+		
 
 			hasSetDoppler = false;
 		}
@@ -612,6 +642,8 @@ namespace CameraTools
 			Debug.Log ("flightCamera position init: "+flightCamera.transform.position);
 			if(FlightGlobals.ActiveVessel != null)
 			{
+				CTPersistantField.Save();
+				
 				hasDied = false;
 				vessel = FlightGlobals.ActiveVessel;
 				cameraUp = -FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D()).normalized;

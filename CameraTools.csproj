@@ -37,6 +37,7 @@
     <Compile Include="CCInputUtils.cs" />
     <Compile Include="CTAtmosphericAudioController.cs" />
     <Compile Include="CTPartAudioController.cs" />
+    <Compile Include="CTPersistantFIeld.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
