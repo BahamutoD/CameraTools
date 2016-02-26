@@ -88,6 +88,7 @@ namespace CameraTools
 				float waveFrontFactor = ((3.67f * angleToCam)/srfSpeed);
 				waveFrontFactor = Mathf.Clamp(waveFrontFactor * waveFrontFactor * waveFrontFactor, 0, 2);
 
+
 				if(vessel.srfSpeed > CamTools.speedOfSound)
 				{
 					waveFrontFactor =  (srfSpeed / (angleToCam) < 3.67f) ? waveFrontFactor + ((srfSpeed/(float)CamTools.speedOfSound)*waveFrontFactor) : 0;
@@ -97,13 +98,17 @@ namespace CameraTools
 						{
 							sonicBoomSource.transform.position = vessel.transform.position + (-vessel.srf_velocity);
 							sonicBoomSource.PlayOneShot(sonicBoomSource.clip);
-							playedBoom = true;
 						}
+						playedBoom = true;
 					}
 					else
 					{
 
 					}
+				}
+				else if(CamTools.speedOfSound / (angleToCam) < 3.67f)
+				{
+					playedBoom = true;
 				}
 
 				lagAudioFactor *= waveFrontFactor;
