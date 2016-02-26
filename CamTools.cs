@@ -69,10 +69,12 @@ namespace CameraTools
 		public float keyZoomSpeed = 1;
 		string guiKeyZoomSpeed = "1";
 		float zoomFactor = 1;
-		float zoomExp = 1;
+		[CTPersistantField]
+		public float zoomExp = 1;
 		[CTPersistantField]
 		public bool enableKeypad = false;
-		float maxRelV = 2500;
+		[CTPersistantField]
+		public float maxRelV = 2500;
 		
 		bool setPresetOffset = false;
 		Vector3 presetOffset = Vector3.zero;
@@ -321,21 +323,21 @@ namespace CameraTools
 			{
 				if(useAudioEffects)
 				{
-					speedOfSound = 233 * Math.Sqrt(1+(FlightGlobals.getExternalTemperature(vessel.GetWorldPos3D(), vessel.mainBody)/273.15));
+					speedOfSound = 233 * Math.Sqrt(1 + (FlightGlobals.getExternalTemperature(vessel.GetWorldPos3D(), vessel.mainBody) / 273.15));
 					//Debug.Log("speed of sound: " + speedOfSound);
 				}
 				
 				if(posCounter < 3)
 				{
 					posCounter++;
-					Debug.Log ("flightCamera position: "+flightCamera.transform.position);
+					Debug.Log("flightCamera position: " + flightCamera.transform.position);
 					flightCamera.transform.position = resetPositionFix;
 					if(hasSavedRotation)
 					{
 						flightCamera.transform.rotation = savedRotation;
 					}
 				}
-				if(flightCamera.Target!=null) flightCamera.setTarget(null); //dont go to next vessel if vessel is destroyed
+				if(flightCamera.Target != null) flightCamera.setTarget(null); //dont go to next vessel if vessel is destroyed
 				
 				if(camTarget != null)
 				{
@@ -344,27 +346,27 @@ namespace CameraTools
 					flightCamera.transform.rotation = Quaternion.LookRotation(lookPosition - flightCamera.transform.position, cameraUp);
 					lastTargetPosition = lookPosition;
 				}
-				else if(hasTarget) 
+				else if(hasTarget)
 				{
 					flightCamera.transform.rotation = Quaternion.LookRotation(lastTargetPosition - flightCamera.transform.position, cameraUp);
 				}
 
 				UpdateCameraShake();
 				
-				if(vessel!=null)
+				if(vessel != null)
 				{
 					if(referenceMode == ReferenceModes.Surface)
 					{
-						flightCamera.transform.position -= Time.fixedDeltaTime * Mathf.Clamp((float)vessel.srf_velocity.magnitude, 0, maxRelV)*vessel.srf_velocity.normalized;
+						flightCamera.transform.position -= Time.fixedDeltaTime * Mathf.Clamp((float)vessel.srf_velocity.magnitude, 0, maxRelV) * vessel.srf_velocity.normalized;
 					}
 					else if(referenceMode == ReferenceModes.Orbit)
 					{
-						flightCamera.transform.position -= Time.fixedDeltaTime * Mathf.Clamp((float)vessel.obt_velocity.magnitude, 0, maxRelV)*vessel.obt_velocity.normalized;
+						flightCamera.transform.position -= Time.fixedDeltaTime * Mathf.Clamp((float)vessel.obt_velocity.magnitude, 0, maxRelV) * vessel.obt_velocity.normalized;
 					}
 					else if(referenceMode == ReferenceModes.InitialVelocity)
 					{
 						Vector3 camVelocity = Vector3.zero;
-						if(useOrbital && initialOrbit!=null)
+						if(useOrbital && initialOrbit != null)
 						{
 							camVelocity = (initialOrbit.getOrbitalVelocityAtUT(Planetarium.GetUniversalTime()).xzy - vessel.GetObtVelocity());
 						}
@@ -384,39 +386,39 @@ namespace CameraTools
 				//free move
 				if(enableKeypad)
 				{
-					if(Input.GetKey (fmUpKey))
+					if(Input.GetKey(fmUpKey))
 					{
 						manualPosition += cameraUp * freeMoveSpeed * Time.fixedDeltaTime;	
 					}
-					else if(Input.GetKey (fmDownKey))
+					else if(Input.GetKey(fmDownKey))
 					{
-						manualPosition -= 	cameraUp * freeMoveSpeed * Time.fixedDeltaTime;	
+						manualPosition -= cameraUp * freeMoveSpeed * Time.fixedDeltaTime;	
 					}
-					if(Input.GetKey (fmForwardKey))
+					if(Input.GetKey(fmForwardKey))
 					{
-						manualPosition +=  forwardLevelAxis * freeMoveSpeed * Time.fixedDeltaTime;
+						manualPosition += forwardLevelAxis * freeMoveSpeed * Time.fixedDeltaTime;
 					}
-					else if(Input.GetKey (fmBackKey))
+					else if(Input.GetKey(fmBackKey))
 					{
 						manualPosition -= forwardLevelAxis * freeMoveSpeed * Time.fixedDeltaTime;
 					}
-					if(Input.GetKey (fmLeftKey))
+					if(Input.GetKey(fmLeftKey))
 					{
 						manualPosition -= flightCamera.transform.right * freeMoveSpeed * Time.fixedDeltaTime;
 					}
-					else if(Input.GetKey (fmRightKey))
+					else if(Input.GetKey(fmRightKey))
 					{
 						manualPosition += flightCamera.transform.right * freeMoveSpeed * Time.fixedDeltaTime;
 					}
 					
 					//keyZoom
-					if(Input.GetKey (fmZoomInKey))
+					if(Input.GetKey(fmZoomInKey))
 					{
-						zoomExp = Mathf.Clamp(zoomExp + (keyZoomSpeed*Time.fixedDeltaTime), 1, 8);
+						zoomExp = Mathf.Clamp(zoomExp + (keyZoomSpeed * Time.fixedDeltaTime), 1, 8);
 					}
-					else if(Input.GetKey (fmZoomOutKey))
+					else if(Input.GetKey(fmZoomOutKey))
 					{
-						zoomExp = Mathf.Clamp(zoomExp - (keyZoomSpeed*Time.fixedDeltaTime), 1, 8);
+						zoomExp = Mathf.Clamp(zoomExp - (keyZoomSpeed * Time.fixedDeltaTime), 1, 8);
 					}
 				}
 				
@@ -438,15 +440,15 @@ namespace CameraTools
 				if(camTarget != null && autoFOV)
 				{
 					float cameraDistance = Vector3.Distance(camTarget.position, flightCamera.transform.position);
-					float targetFoV = Mathf.Clamp((7000/(cameraDistance+100)) - 4, 2, 60);
+					float targetFoV = Mathf.Clamp((7000 / (cameraDistance + 100)) - 4, 2, 60);
 					//flightCamera.SetFoV(targetFoV);	
 					manualFOV = targetFoV;
 				}
 				//FOV
 				if(!autoFOV)
 				{
-					zoomFactor = Mathf.Exp(zoomExp)/Mathf.Exp(1);
-					manualFOV = 60/zoomFactor;
+					zoomFactor = Mathf.Exp(zoomExp) / Mathf.Exp(1);
+					manualFOV = 60 / zoomFactor;
 					updateFOV = (currentFOV != manualFOV);
 					if(updateFOV)
 					{
@@ -474,6 +476,13 @@ namespace CameraTools
 						if(!v || !v.loaded || v.packed) continue;
 						VesselCameraShake(v);
 					}
+				}
+			}
+			else
+			{
+				if(!autoFOV)
+				{
+					zoomFactor = Mathf.Exp(zoomExp)/Mathf.Exp(1);
 				}
 			}
 			
@@ -641,9 +650,7 @@ namespace CameraTools
 		{
 			Debug.Log ("flightCamera position init: "+flightCamera.transform.position);
 			if(FlightGlobals.ActiveVessel != null)
-			{
-				CTPersistantField.Save();
-				
+			{				
 				hasDied = false;
 				vessel = FlightGlobals.ActiveVessel;
 				cameraUp = -FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D()).normalized;
@@ -957,14 +964,16 @@ namespace CameraTools
 				}
 				line++;
 				
-				if(manualOffset) autoFlybyPosition = false;
+
 				autoFlybyPosition = GUI.Toggle(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), autoFlybyPosition, "Auto Flyby Position");
+				if(autoFlybyPosition) manualOffset = false;
 				line++;
 				
 				manualOffset = GUI.Toggle(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), manualOffset, "Manual Flyby Position");
 				line++;
 				if(manualOffset)
 				{
+					autoFlybyPosition = false;
 					GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), 60, entryHeight), "Fwd:", leftLabel);
 					guiOffsetForward = GUI.TextField(new Rect(leftIndent+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), guiOffsetForward.ToString());
 					if(float.TryParse(guiOffsetForward, out parseResult))
@@ -1104,8 +1113,27 @@ namespace CameraTools
 						isRecordingRevert = false;
 					}
 				}
-				
-				
+			}
+
+
+			line++;
+			line++;
+			Rect saveRect = new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth / 2, entryHeight);
+			if(GUI.Button(saveRect, "Save"))
+			{
+				CTPersistantField.Save();
+			}
+
+			Rect loadRect = new Rect(saveRect);
+			loadRect.x += contentWidth / 2;
+			if(GUI.Button(loadRect, "Reload"))
+			{
+				CTPersistantField.Load();
+				guiOffsetForward = manualOffsetForward.ToString();
+				guiOffsetRight = manualOffsetRight.ToString();
+				guiOffsetUp = manualOffsetUp.ToString();
+				guiKeyZoomSpeed = keyZoomSpeed.ToString();
+				guiFreeMoveSpeed = freeMoveSpeed.ToString();
 			}
 			
 			if(!hasFixedWindow)
