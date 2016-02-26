@@ -48,11 +48,11 @@ namespace CameraTools
 			sonicBoomSource = new GameObject().AddComponent<AudioSource>();
 			sonicBoomSource.transform.parent = vessel.transform;
 			sonicBoomSource.transform.localPosition = Vector3.zero;
-			sonicBoomSource.minDistance = 10;
-			sonicBoomSource.maxDistance = 10000;
+			sonicBoomSource.minDistance = 50;
+			sonicBoomSource.maxDistance = 20000;
 			sonicBoomSource.dopplerLevel = 0;
 			sonicBoomSource.clip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/sonicBoom");
-			sonicBoomSource.volume = Mathf.Clamp01(vessel.GetTotalMass()/6f);
+			sonicBoomSource.volume = Mathf.Clamp01(vessel.GetTotalMass()/4f);
 			sonicBoomSource.Stop();
 
 
@@ -76,6 +76,7 @@ namespace CameraTools
 			if(Time.timeScale > 0 && vessel.dynamicPressurekPa > 0)
 			{
 				float srfSpeed = (float)vessel.srfSpeed;
+				srfSpeed = Mathf.Min(srfSpeed, 550f);
 				float angleToCam = Vector3.Angle(vessel.srf_velocity, FlightCamera.fetch.mainCamera.transform.position - vessel.transform.position);
 				angleToCam = Mathf.Clamp(angleToCam, 1, 180);
 			
@@ -94,7 +95,7 @@ namespace CameraTools
 					{
 						if(!playedBoom)
 						{
-							sonicBoomSource.transform.position = vessel.transform.position - (vessel.srf_velocity);
+							sonicBoomSource.transform.position = vessel.transform.position + (-vessel.srf_velocity);
 							sonicBoomSource.PlayOneShot(sonicBoomSource.clip);
 							playedBoom = true;
 						}
