@@ -62,6 +62,7 @@ namespace CameraTools
 			angleToCam = Mathf.Clamp(angleToCam, 1, 180);
 
 			float srfSpeed = (float)vessel.srfSpeed;
+			srfSpeed = Mathf.Min(srfSpeed, 550f);
 
 			float lagAudioFactor = (75000 / (Vector3.Distance(vessel.transform.position, FlightCamera.fetch.mainCamera.transform.position) * srfSpeed * angleToCam / 90));
 			lagAudioFactor = Mathf.Clamp(lagAudioFactor * lagAudioFactor * lagAudioFactor, 0, 4);
@@ -76,8 +77,8 @@ namespace CameraTools
 
 			lagAudioFactor *= waveFrontFactor;
 		
-			audioSource.minDistance = modMinDist * lagAudioFactor;
-			audioSource.maxDistance = Mathf.Clamp(modMaxDist * lagAudioFactor, audioSource.minDistance, 16000);
+			audioSource.minDistance = Mathf.Lerp(origMinDist, modMinDist * lagAudioFactor, Mathf.Clamp01((float)vessel.srfSpeed/30));
+			audioSource.maxDistance = Mathf.Lerp(origMaxDist,Mathf.Clamp(modMaxDist * lagAudioFactor, audioSource.minDistance, 16000), Mathf.Clamp01((float)vessel.srfSpeed/30));
 				
 		}
 
