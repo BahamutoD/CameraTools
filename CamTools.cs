@@ -17,7 +17,7 @@ namespace CameraTools
 		float origNearClip;
 		FlightCamera flightCamera;
 		
-		Transform camTarget = null;
+		Part camTarget = null;
 
 		[CTPersistantField]
 		public ReferenceModes referenceMode = ReferenceModes.Surface;
@@ -46,13 +46,14 @@ namespace CameraTools
 		float windowWidth = 250;
 		float windowHeight = 400;
 		float draggableHeight = 40;
-		float leftIndent = 8;
+		float leftIndent = 12;
 		float entryHeight = 20;
 		[CTPersistantField]
 		public ToolModes toolMode = ToolModes.StationaryCamera;
 		Rect windowRect = new Rect(0,0,0,0);
 		bool gameUIToggle = true;
 		bool hasFixedWindow = false;
+		float incrButtonWidth = 26;
 		
 		//stationary camera vars
 		[CTPersistantField]
@@ -98,6 +99,9 @@ namespace CameraTools
 
 		[CTPersistantField]
 		public bool useOrbital = false;
+
+		[CTPersistantField]
+		public bool targetCoM = false;
 
 		bool hasDied = false;
 		float diedTime = 0;
@@ -253,7 +257,7 @@ namespace CameraTools
 			//get target transform from mouseClick
 			if(waitingForTarget && mouseUp && Input.GetKeyDown(KeyCode.Mouse0))
 			{
-				Transform tgt = GetTransformFromMouse();
+				Part tgt = GetPartFromMouse();
 				if(tgt!=null)
 				{
 					camTarget = tgt;
@@ -338,11 +342,21 @@ namespace CameraTools
 					}
 				}
 				if(flightCamera.Target != null) flightCamera.setTarget(null); //dont go to next vessel if vessel is destroyed
-				
+
 				if(camTarget != null)
 				{
-					Vector3 lookPosition = camTarget.position;
-					if(camTarget.rigidbody) lookPosition += camTarget.rigidbody.velocity * Time.fixedDeltaTime;
+					Vector3 lookPosition = camTarget.transform.position;
+					if(targetCoM)
+					{
+						lookPosition = camTarget.vessel.CoM;
+					}
+
+					lookPosition += 2*camTarget.vessel.rb_velocity * Time.fixedDeltaTime;
+					if(targetCoM)
+					{
+						lookPosition += camTarget.vessel.rb_velocity * Time.fixedDeltaTime;
+					}
+
 					flightCamera.transform.rotation = Quaternion.LookRotation(lookPosition - flightCamera.transform.position, cameraUp);
 					lastTargetPosition = lookPosition;
 				}
@@ -439,7 +453,7 @@ namespace CameraTools
 				//autoFov
 				if(camTarget != null && autoFOV)
 				{
-					float cameraDistance = Vector3.Distance(camTarget.position, flightCamera.transform.position);
+					float cameraDistance = Vector3.Distance(camTarget.transform.position, flightCamera.transform.position);
 					float targetFoV = Mathf.Clamp((7000 / (cameraDistance + 100)) - 4, 2, 60);
 					//flightCamera.SetFoV(targetFoV);	
 					manualFOV = targetFoV;
@@ -492,6 +506,8 @@ namespace CameraTools
 				RevertCamera();	
 			}
 		}
+
+
 		
 		void LateUpdate()
 		{
@@ -813,14 +829,15 @@ namespace CameraTools
 			origNearClip = Camera.main.nearClipPlane;	
 		}
 		
-		Transform GetTransformFromMouse()
+		Part GetPartFromMouse()
 		{
 			Vector3 mouseAim = new Vector3(Input.mousePosition.x/Screen.width, Input.mousePosition.y/Screen.height, 0);
 			Ray ray = FlightCamera.fetch.mainCamera.ViewportPointToRay(mouseAim);
 			RaycastHit hit;
-			if(Physics.Raycast(ray, out hit, 10000, 524289))
+			if(Physics.Raycast(ray, out hit, 10000, 1<<0))
 			{
-				return 	hit.transform;
+				Part p = hit.transform.GetComponentInParent<Part>();
+				return p;
 			}
 			else return null;
 		}
@@ -884,10 +901,13 @@ namespace CameraTools
 			
 			
 			
-			int line = 1;
+			float line = 1;
 			float contentWidth = (windowWidth) - (2*leftIndent);
 			float contentTop = 20;
-			GUI.Label(new Rect(0, contentTop, windowWidth, 30), "Camera Tools", centerLabel);
+			GUIStyle titleStyle = new GUIStyle(centerLabel);
+			titleStyle.fontSize = 24;
+			titleStyle.alignment = TextAnchor.MiddleCenter;
+			GUI.Label(new Rect(0, contentTop, windowWidth, 40), "Camera Tools", titleStyle);
 			line++;
 			float parseResult;
 			//Stationary camera GUI
@@ -895,8 +915,8 @@ namespace CameraTools
 			{
 				GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), "Tool: Stationary Camera", leftLabel);
 				line++;
-				GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), "--------------------------", centerLabel);
-				line++;
+				//GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), "--------------------------", centerLabel);
+				//line++;
 				
 				GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), "Frame of Reference: "+referenceMode.ToString(), leftLabel);
 				line++;
@@ -921,24 +941,25 @@ namespace CameraTools
 					useOrbital = GUI.Toggle(new Rect(leftIndent, contentTop+(line*entryHeight),contentWidth, entryHeight), useOrbital, " Orbital");
 				}
 				line++;
-				line++;
-
 				useAudioEffects = GUI.Toggle(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), useAudioEffects, "Use Audio Effects");
 				line++;
 				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Camera shake:");
 				line++;
 				shakeMultiplier = GUI.HorizontalSlider(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth - 45, entryHeight), shakeMultiplier, 0f, 10f);
-				GUI.Label(new Rect(leftIndent + contentWidth - 40, contentTop + (line * entryHeight), 40, entryHeight), shakeMultiplier.ToString("0.00") + "x");
+				GUI.Label(new Rect(leftIndent + contentWidth - 40, contentTop + ((line-0.25f) * entryHeight), 40, entryHeight), shakeMultiplier.ToString("0.00") + "x");
 				line++;
 				
 					
 				GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), "Zoom:", leftLabel);
 				line++;
+
+				if(!autoFOV)
+				{
+					zoomExp = GUI.HorizontalSlider(new Rect(leftIndent, contentTop + ((line) * entryHeight), contentWidth - 45, entryHeight), zoomExp, 1, 8);
+				}
 				
-				zoomExp = GUI.HorizontalSlider(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth - 45, entryHeight), zoomExp, 1, 8);
 				
-				
-				GUI.Label(new Rect(leftIndent+contentWidth-40, contentTop+(line*entryHeight), 40, entryHeight), zoomFactor.ToString("0.0")+"x", leftLabel);
+				GUI.Label(new Rect(leftIndent+contentWidth-40, contentTop+((line-0.15f)*entryHeight), 40, entryHeight), zoomFactor.ToString("0.0")+"x", leftLabel);
 				line++;
 				
 				autoFOV = GUI.Toggle(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), autoFOV, "Auto Zoom");//, leftLabel);
@@ -971,36 +992,50 @@ namespace CameraTools
 				
 				manualOffset = GUI.Toggle(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), manualOffset, "Manual Flyby Position");
 				line++;
+
+				Color origGuiColor = GUI.color;
 				if(manualOffset)
 				{
 					autoFlybyPosition = false;
-					GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), 60, entryHeight), "Fwd:", leftLabel);
-					guiOffsetForward = GUI.TextField(new Rect(leftIndent+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), guiOffsetForward.ToString());
-					if(float.TryParse(guiOffsetForward, out parseResult))
-					{
-						manualOffsetForward = parseResult;	
-					}
-					
-					GUI.Label(new Rect(leftIndent+(contentWidth/2), contentTop+(line*entryHeight), 60, entryHeight), "Right:", leftLabel);
-					guiOffsetRight = GUI.TextField(new Rect(leftIndent+(contentWidth/2)+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), guiOffsetRight);
-					if(float.TryParse(guiOffsetRight, out parseResult))
-					{
-						manualOffsetRight = parseResult;	
-					}
-					
-					line++;
-					GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), 60, entryHeight), "Up:", leftLabel);
-					guiOffsetUp = GUI.TextField(new Rect(leftIndent+60, contentTop+(line*entryHeight), (contentWidth/2)-60, entryHeight), guiOffsetUp);
-					if(float.TryParse(guiOffsetUp, out parseResult))
-					{
-						manualOffsetUp = parseResult;	
-					}
-					
 				}
 				else
 				{
-					line++;
+					GUI.color = new Color(0.5f, 0.5f, 0.5f, origGuiColor.a);
 				}
+				GUI.Label(new Rect(leftIndent, contentTop+(line*entryHeight), 60, entryHeight), "Fwd:", leftLabel);
+				float textFieldWidth = 42;
+				Rect fwdFieldRect = new Rect(leftIndent+contentWidth-textFieldWidth-(3*incrButtonWidth), contentTop+(line*entryHeight), textFieldWidth, entryHeight);
+				guiOffsetForward = GUI.TextField(fwdFieldRect, guiOffsetForward.ToString());
+				if(float.TryParse(guiOffsetForward, out parseResult))
+				{
+					manualOffsetForward = parseResult;	
+				}
+				DrawIncrementButtons(fwdFieldRect, ref manualOffsetForward);
+				guiOffsetForward = manualOffsetForward.ToString();
+
+				line++;
+				Rect rightFieldRect = new Rect(fwdFieldRect.x, contentTop+(line*entryHeight), textFieldWidth, entryHeight);
+				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), 60, entryHeight), "Right:", leftLabel);
+				guiOffsetRight = GUI.TextField(rightFieldRect, guiOffsetRight);
+				if(float.TryParse(guiOffsetRight, out parseResult))
+				{
+					manualOffsetRight = parseResult;	
+				}
+				DrawIncrementButtons(rightFieldRect, ref manualOffsetRight);
+				guiOffsetRight = manualOffsetRight.ToString();
+				line++;
+
+				Rect upFieldRect = new Rect(fwdFieldRect.x, contentTop+(line*entryHeight), textFieldWidth, entryHeight);
+				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), 60, entryHeight), "Up:", leftLabel);
+				guiOffsetUp = GUI.TextField(upFieldRect, guiOffsetUp);
+				if(float.TryParse(guiOffsetUp, out parseResult))
+				{
+					manualOffsetUp = parseResult;	
+				}
+				DrawIncrementButtons(upFieldRect, ref manualOffsetUp);
+				guiOffsetUp = manualOffsetUp.ToString();
+				GUI.color = origGuiColor;
+
 				line++;
 				line++;
 				
@@ -1018,7 +1053,7 @@ namespace CameraTools
 				line++;
 				if(GUI.Button(new Rect(leftIndent, contentTop+(line*entryHeight), (contentWidth/2)-2, entryHeight-2), "Target Self"))
 				{
-					camTarget = FlightGlobals.ActiveVessel.transform;
+					camTarget = FlightGlobals.ActiveVessel.GetReferenceTransformPart();
 					hasTarget = true;
 				}
 				if(GUI.Button(new Rect(2+leftIndent+contentWidth/2, contentTop+(line*entryHeight), (contentWidth/2)-2, entryHeight-2), "Clear Target"))
@@ -1027,7 +1062,10 @@ namespace CameraTools
 					hasTarget = false;
 				}
 				line++;
-				line++;
+
+				targetCoM = GUI.Toggle(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight - 2), targetCoM, "Vessel Center of Mass");
+
+				line += 1.25f;
 				
 				enableKeypad = GUI.Toggle(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), enableKeypad, "Keypad Control");
 				if(enableKeypad)
@@ -1143,7 +1181,36 @@ namespace CameraTools
 				hasFixedWindow = true;
 			}
 		}
-		
+
+		void DrawIncrementButtons(Rect fieldRect, ref float val)
+		{
+			Rect incrButtonRect = new Rect(fieldRect.x-incrButtonWidth, fieldRect.y, incrButtonWidth, entryHeight); 
+			if(GUI.Button(incrButtonRect, "-"))
+			{
+				val -= 5;
+			}
+
+			incrButtonRect.x -= incrButtonWidth;
+
+			if(GUI.Button(incrButtonRect, "--"))
+			{
+				val -= 50;
+			}
+
+			incrButtonRect.x = fieldRect.x + fieldRect.width;
+
+			if(GUI.Button(incrButtonRect, "+"))
+			{
+				val += 5;
+			}
+
+			incrButtonRect.x += incrButtonWidth;
+
+			if(GUI.Button(incrButtonRect, "++"))
+			{
+				val += 50;
+			}
+		}
 		
 		//AppLauncherSetup
 		void AddToolbarButton()

@@ -1,10 +1,11 @@
 ﻿<Properties StartupItem="CameraTools.csproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="CTAtmosphericAudioController.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="CamTools.cs">
     <Files>
-      <File FileName="CamTools.cs" Line="1109" Column="13" />
-      <File FileName="CTAtmosphericAudioController.cs" Line="117" Column="6" />
-      <File FileName="CTPartAudioController.cs" Line="84" Column="12" />
+      <File FileName="CamTools.cs" Line="105" Column="42" />
+      <File FileName="CTAtmosphericAudioController.cs" Line="102" Column="25" />
+      <File FileName="CTPartAudioController.cs" Line="67" Column="57" />
+      <File FileName="CTPersistantFIeld.cs" Line="64" Column="36" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
