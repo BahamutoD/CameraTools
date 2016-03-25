@@ -458,7 +458,7 @@ namespace CameraTools
 				float targetFoV;
 				if(dogfightVelocityChase)
 				{
-					targetFoV = Mathf.Clamp((7000 / (dogfightDistance + 100)) - 4, 2, 60);
+					targetFoV = Mathf.Clamp((7000 / (dogfightDistance + 100)) - 14 + autoZoomMargin, 2, 60);
 				}
 				else
 				{
@@ -1327,8 +1327,6 @@ namespace CameraTools
 				line++;
 
 				targetCoM = GUI.Toggle(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight - 2), targetCoM, "Vessel Center of Mass");
-
-
 			}
 			else if(toolMode == ToolModes.DogfightCamera)
 			{
@@ -1392,8 +1390,6 @@ namespace CameraTools
 				dogfightOffsetY = GUI.HorizontalSlider(new Rect(leftIndent+15, contentTop + (line * entryHeight)+6, contentWidth-45, entryHeight), dogfightOffsetY, -dogfightMaxOffset, dogfightMaxOffset);
 				GUI.Label(new Rect(leftIndent+contentWidth-25, contentTop + (line * entryHeight), 25, entryHeight), dogfightOffsetY.ToString("0.0"));
 				line += 1.5f;
-
-
 			}
 
 			line += 1.25f;
