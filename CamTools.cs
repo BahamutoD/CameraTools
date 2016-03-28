@@ -1,7 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using System.Reflection;
 
 namespace CameraTools
 {
@@ -157,6 +158,7 @@ namespace CameraTools
 		public static double speedOfSound = 330;
 
 		//dogfight cam
+		Vessel dogfightPrevTarget;
 		Vessel dogfightTarget;
 		[CTPersistantField]
 		float dogfightDistance = 30;
@@ -174,6 +176,12 @@ namespace CameraTools
 		Vector3 dogfightLastTargetPosition;
 		Vector3 dogfightLastTargetVelocity;
 		bool dogfightVelocityChase = false;
+		//bdarmory
+		bool hasBDAI = false;
+		[CTPersistantField]
+		public bool useBDAutoTarget = false;
+		object aiComponent = null;
+		FieldInfo bdAiTargetField;
 
 		void Awake()
 		{
@@ -217,8 +225,16 @@ namespace CameraTools
 			{
 				cameraParent.transform.position = FlightGlobals.ActiveVessel.transform.position;
 				vessel = FlightGlobals.ActiveVessel;
-			
+
+				CheckForBDAI(FlightGlobals.ActiveVessel);
 			}
+			bdAiTargetField = GetAITargetField();
+			GameEvents.onVesselChange.Add(SwitchToVessel);
+		}
+
+		void OnDestroy()
+		{
+			GameEvents.onVesselChange.Remove(SwitchToVessel);
 		}
 		
 		void Update()
@@ -391,6 +407,8 @@ namespace CameraTools
 				dogfightVelocityChase = false;
 			}
 
+			dogfightPrevTarget = dogfightTarget;
+
 			hasDied = false;
 			vessel = FlightGlobals.ActiveVessel;
 			cameraUp = -FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D()).normalized;
@@ -556,6 +574,21 @@ namespace CameraTools
 				}
 			}
 			UpdateCameraShake();
+
+			if(hasBDAI && useBDAutoTarget)
+			{
+				Vessel newAITarget = GetAITargetedVessel();
+				if(newAITarget)
+				{
+					dogfightTarget = newAITarget;
+				}
+			}
+
+			if(dogfightTarget != dogfightPrevTarget)
+			{
+				//RevertCamera();
+				StartDogfightCamera();
+			}
 		}
 
 		void UpdateStationaryCamera()
@@ -1375,6 +1408,13 @@ namespace CameraTools
 				}
 				line++;
 
+				if(hasBDAI)
+				{
+					useBDAutoTarget = GUI.Toggle(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight - 2), useBDAutoTarget, "BDA AI Auto target");
+					line++;
+				}
+
+				line++;
 				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth/2, entryHeight), "Distance: " + dogfightDistance.ToString("0.0"));
 				line++;
 				dogfightDistance = GUI.HorizontalSlider(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), dogfightDistance, 1, 100);
@@ -1630,8 +1670,84 @@ namespace CameraTools
 				}
 			}
 		}
+
+		private void CheckForBDAI(Vessel v)
+		{
+			hasBDAI = false;
+			aiComponent = null;
+			if(v)
+			{
+				foreach(Part p in v.parts)
+				{
+					if(p.GetComponent("BDModulePilotAI"))
+					{
+						hasBDAI = true;
+						aiComponent = (object)p.GetComponent("BDModulePilotAI");
+						return;
+					}
+				}
+			}
+		}
+
+		private Vessel GetAITargetedVessel()
+		{
+			if(!hasBDAI || aiComponent==null || bdAiTargetField==null)
+			{
+				return null;
+			}
+
+			return (Vessel) bdAiTargetField.GetValue(aiComponent);
+		}
+
+		private Type AIModuleType()
+		{
+			//Debug.Log("loaded assy's: ");
+			foreach(var assy in AssemblyLoader.loadedAssemblies)
+			{
+				//Debug.Log("- "+assy.assembly.FullName);
+				if(assy.assembly.FullName.Contains("BahaTurret,"))
+				{
+					foreach(var t in assy.assembly.GetTypes())
+					{
+						if(t.Name == "BDModulePilotAI")
+						{
+							return t;
+						}
+					}
+				}
+			}
+
+			return null;
+		}
+
+		private FieldInfo GetAITargetField()
+		{
+			Type aiModType = AIModuleType();
+			if(aiModType == null) return null;
+
+			FieldInfo[] fields = aiModType.GetFields(BindingFlags.NonPublic|BindingFlags.Instance);
+			Debug.Log("bdai fields: ");
+			foreach(var f in fields)
+			{
+				Debug.Log("- " + f.Name);
+				if(f.Name == "targetVessel")
+				{
+					return f;
+				}
+			}
+
+			return null;
+		}
+
+
+		void SwitchToVessel(Vessel v)
+		{
+			CheckForBDAI(v);
+		}
 		
 	}
+
+
 	
 	
 	

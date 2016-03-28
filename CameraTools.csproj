@@ -46,5 +46,6 @@
     <Reference Include="UnityEngine">
       <HintPath>..\..\..\..\Games\KSP\KSP 1.0.4 - Mod Dev\KSP_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
+    <Reference Include="System" />
   </ItemGroup>
 </Project>
