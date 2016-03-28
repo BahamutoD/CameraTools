@@ -16,9 +16,9 @@ TDx*
 *.sln.docstates
 
 # Build results
-# [Dd]ebug/
+[Dd]ebug/
 [Dd]ebugPublic/
-[Rr]elease/
+#[Rr]elease/
 x64/
 build/
 bld/
@@ -222,3 +222,4 @@ $RECYCLE.BIN/
 *.msp
 
 *.zip
+*.bat
