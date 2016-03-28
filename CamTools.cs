@@ -398,6 +398,8 @@ namespace CameraTools
 				return;
 			}
 
+
+
 			if(!dogfightTarget)
 			{
 				dogfightVelocityChase = true;
@@ -418,6 +420,12 @@ namespace CameraTools
 			cameraParent.transform.position = vessel.transform.position+vessel.rb_velocity*Time.fixedDeltaTime;
 
 			cameraToolActive = true;
+
+			ResetDoppler();
+			if(OnResetCTools != null)
+			{
+				OnResetCTools();
+			}
 
 			SetDoppler(false);
 			AddAtmoAudioControllers(false);
@@ -1726,10 +1734,10 @@ namespace CameraTools
 			if(aiModType == null) return null;
 
 			FieldInfo[] fields = aiModType.GetFields(BindingFlags.NonPublic|BindingFlags.Instance);
-			Debug.Log("bdai fields: ");
+			//Debug.Log("bdai fields: ");
 			foreach(var f in fields)
 			{
-				Debug.Log("- " + f.Name);
+				//Debug.Log("- " + f.Name);
 				if(f.Name == "targetVessel")
 				{
 					return f;
@@ -1742,7 +1750,24 @@ namespace CameraTools
 
 		void SwitchToVessel(Vessel v)
 		{
+			vessel = v;
+
 			CheckForBDAI(v);
+
+			if(cameraToolActive)
+			{
+				if(toolMode == ToolModes.DogfightCamera)
+				{
+					StartCoroutine(ResetDogfightCamRoutine());
+				}
+			}
+		}
+
+		IEnumerator ResetDogfightCamRoutine()
+		{
+			yield return new WaitForEndOfFrame();
+			RevertCamera();
+			StartDogfightCamera();
 		}
 		
 	}
