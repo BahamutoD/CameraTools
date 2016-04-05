@@ -223,3 +223,10 @@ $RECYCLE.BIN/
 
 *.zip
 *.bat
+
+KSPAssets.dll
+KSPCore.dll
+KSPUtil.dll
+SaveUpgradePipeline.Core.dll
+Vectrosity.dll
+

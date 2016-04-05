@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Reflection;
-
+using KSP.UI.Screens;
 namespace CameraTools
 {
 	[KSPAddon(KSPAddon.Startup.Flight, false)]
@@ -183,6 +183,42 @@ namespace CameraTools
 		object aiComponent = null;
 		FieldInfo bdAiTargetField;
 
+
+		//pathing
+		int selectedPathIndex = -1;
+		List<CameraPath> availablePaths;
+		CameraPath currentPath
+		{
+			get
+			{
+				if(selectedPathIndex >= 0 && selectedPathIndex < availablePaths.Count)
+				{
+					return availablePaths[selectedPathIndex];
+				}
+				else
+				{
+					return null;
+				}
+			}
+		}
+		int currentKeyframeIndex = -1;
+		Vector3 currentKeyframePosition;
+		Quaternion currentKeyframeRotation;
+		float currentKeyframeZoom;
+		float currentKeyframeTime;
+		string currKeyTimeString;
+		bool showKeyframeEditor = false;
+		float pathStartTime;
+		bool isPlayingPath = false;
+		float pathTime
+		{
+			get
+			{
+				return Time.time - pathStartTime;
+			}
+		}
+		Vector2 keysScrollPos;
+
 		void Awake()
 		{
 			if(fetch)
@@ -192,7 +228,7 @@ namespace CameraTools
 
 			fetch = this;
 
-			CTPersistantField.Load();
+			Load();
 
 			guiOffsetForward = manualOffsetForward.ToString();
 			guiOffsetRight = manualOffsetRight.ToString();
@@ -203,7 +239,7 @@ namespace CameraTools
 
 		void Start()
 		{
-			windowRect = new Rect(Screen.width-windowWidth-5, 45, windowWidth, windowHeight);
+			windowRect = new Rect(Screen.width-windowWidth-40, 0, windowWidth, windowHeight);
 			flightCamera = FlightCamera.fetch;
 			cameraToolActive = false;
 			SaveOriginalCamera();
@@ -230,6 +266,9 @@ namespace CameraTools
 			}
 			bdAiTargetField = GetAITargetField();
 			GameEvents.onVesselChange.Add(SwitchToVessel);
+
+			//pathing
+			availablePaths = new List<CameraPath>();
 		}
 
 		void OnDestroy()
@@ -277,7 +316,18 @@ namespace CameraTools
 							StartDogfightCamera();
 						}
 					}
+					else if(toolMode == ToolModes.Pathing)
+					{
+						if(!cameraToolActive)
+						{
+							SaveOriginalCamera();
+						}
+						StartPathingCam();
+						PlayPathingCam();
+					}
 				}
+
+
 			}
 
 			if(Input.GetMouseButtonUp(0))
@@ -361,6 +411,10 @@ namespace CameraTools
 				else if(toolMode == ToolModes.DogfightCamera)
 				{
 					UpdateDogfightCamera();
+				}
+				else if(toolMode == ToolModes.Pathing)
+				{
+					UpdatePathingCam();
 				}
 			}
 			else
@@ -645,7 +699,7 @@ namespace CameraTools
 
 			if(vessel != null)
 			{
-				cameraParent.transform.position = manualPosition + (vessel.findWorldCenterOfMass() - vessel.rigidbody.velocity * Time.fixedDeltaTime);	
+				cameraParent.transform.position = manualPosition + (vessel.findWorldCenterOfMass() - vessel.rb_velocity * Time.fixedDeltaTime);	
 
 				if(referenceMode == ReferenceModes.Surface)
 				{
@@ -963,7 +1017,7 @@ namespace CameraTools
 				
 				flightCamera.transform.parent = cameraParent.transform;
 				flightCamera.setTarget(null);
-				cameraParent.transform.position = vessel.transform.position+vessel.rigidbody.velocity*Time.fixedDeltaTime;
+				cameraParent.transform.position = vessel.transform.position+vessel.rb_velocity*Time.fixedDeltaTime;
 				manualPosition = Vector3.zero;
 				
 				
@@ -1103,6 +1157,8 @@ namespace CameraTools
 			{
 				OnResetCTools();
 			}
+
+			StopPlayingPath();
 		}
 		
 		void SaveOriginalCamera()
@@ -1168,6 +1224,15 @@ namespace CameraTools
 			if(guiEnabled && gameUIToggle) 
 			{
 				windowRect = GUI.Window(320, windowRect, GuiWindow, "");
+
+				if(showKeyframeEditor)
+				{
+					KeyframeEditorWindow();
+				}
+				if(showPathSelectorWindow)
+				{
+					PathSelectorWindow();
+				}
 			}
 		}
 				
@@ -1230,10 +1295,12 @@ namespace CameraTools
 			}
 			line++;
 
-			autoFOV = GUI.Toggle(new Rect(leftIndent, contentTop+(line*entryHeight), contentWidth, entryHeight), autoFOV, "Auto Zoom");//, leftLabel);
+			if(toolMode != ToolModes.Pathing)
+			{
+				autoFOV = GUI.Toggle(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), autoFOV, "Auto Zoom");//, leftLabel);
+				line++;
+			}
 			line++;
-			line++;
-
 			useAudioEffects = GUI.Toggle(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), useAudioEffects, "Use Audio Effects");
 			line++;
 			GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Camera shake:");
@@ -1406,7 +1473,7 @@ namespace CameraTools
 					foreach(var v in loadedVessels)
 					{
 						if(!v || !v.loaded) continue;
-						if(GUI.Button(new Rect(leftIndent+10, contentTop + (line * entryHeight), contentWidth - 10, entryHeight), v.vesselName))
+						if(GUI.Button(new Rect(leftIndent + 10, contentTop + (line * entryHeight), contentWidth - 10, entryHeight), v.vesselName))
 						{
 							dogfightTarget = v;
 							showingVesselList = false;
@@ -1423,7 +1490,7 @@ namespace CameraTools
 				}
 
 				line++;
-				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth/2, entryHeight), "Distance: " + dogfightDistance.ToString("0.0"));
+				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth / 2, entryHeight), "Distance: " + dogfightDistance.ToString("0.0"));
 				line++;
 				dogfightDistance = GUI.HorizontalSlider(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), dogfightDistance, 1, 100);
 				line += 1.5f;
@@ -1431,13 +1498,92 @@ namespace CameraTools
 				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Offset:");
 				line++;
 				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), 15, entryHeight), "X: ");
-				dogfightOffsetX = GUI.HorizontalSlider(new Rect(leftIndent+15, contentTop + (line * entryHeight)+6, contentWidth-45, entryHeight), dogfightOffsetX, -dogfightMaxOffset, dogfightMaxOffset);
-				GUI.Label(new Rect(leftIndent+contentWidth-25, contentTop + (line * entryHeight), 25, entryHeight), dogfightOffsetX.ToString("0.0"));
+				dogfightOffsetX = GUI.HorizontalSlider(new Rect(leftIndent + 15, contentTop + (line * entryHeight) + 6, contentWidth - 45, entryHeight), dogfightOffsetX, -dogfightMaxOffset, dogfightMaxOffset);
+				GUI.Label(new Rect(leftIndent + contentWidth - 25, contentTop + (line * entryHeight), 25, entryHeight), dogfightOffsetX.ToString("0.0"));
 				line++;
 				GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), 15, entryHeight), "Y: ");
-				dogfightOffsetY = GUI.HorizontalSlider(new Rect(leftIndent+15, contentTop + (line * entryHeight)+6, contentWidth-45, entryHeight), dogfightOffsetY, -dogfightMaxOffset, dogfightMaxOffset);
-				GUI.Label(new Rect(leftIndent+contentWidth-25, contentTop + (line * entryHeight), 25, entryHeight), dogfightOffsetY.ToString("0.0"));
+				dogfightOffsetY = GUI.HorizontalSlider(new Rect(leftIndent + 15, contentTop + (line * entryHeight) + 6, contentWidth - 45, entryHeight), dogfightOffsetY, -dogfightMaxOffset, dogfightMaxOffset);
+				GUI.Label(new Rect(leftIndent + contentWidth - 25, contentTop + (line * entryHeight), 25, entryHeight), dogfightOffsetY.ToString("0.0"));
 				line += 1.5f;
+			}
+			else if(toolMode == ToolModes.Pathing)
+			{
+				if(selectedPathIndex >= 0)
+				{
+					GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Path:");
+					currentPath.pathName = GUI.TextField(new Rect(leftIndent + 34, contentTop + (line * entryHeight), contentWidth-34, entryHeight), currentPath.pathName);
+				}
+				else
+				{
+					GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Path: None");
+				}
+				line += 1.25f;
+				if(GUI.Button(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Open Path"))
+				{
+					TogglePathList();
+				}
+				line++;
+				if(GUI.Button(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth/2, entryHeight), "New Path"))
+				{
+					CreateNewPath();
+				}
+				if(GUI.Button(new Rect(leftIndent + (contentWidth/2), contentTop + (line * entryHeight), contentWidth / 2, entryHeight), "Delete Path"))
+				{
+					DeletePath(selectedPathIndex);
+				}
+				line ++;
+				if(selectedPathIndex >= 0)
+				{
+					GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Interpolation rate: " + currentPath.lerpRate.ToString("0.0"));
+					line++;
+					currentPath.lerpRate = GUI.HorizontalSlider(new Rect(leftIndent, contentTop + (line * entryHeight) + 4, contentWidth - 50, entryHeight), currentPath.lerpRate, 1f, 15f);
+					currentPath.lerpRate = Mathf.Round(currentPath.lerpRate * 10) / 10;
+					line++;
+					GUI.Label(new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, entryHeight), "Path timescale " + currentPath.timeScale.ToString("0.00"));
+					line++;
+					currentPath.timeScale = GUI.HorizontalSlider(new Rect(leftIndent, contentTop + (line * entryHeight) + 4, contentWidth - 50, entryHeight), currentPath.timeScale, 0.05f, 4f);
+					currentPath.timeScale = Mathf.Round(currentPath.timeScale * 20) / 20;
+					line++;
+					float viewHeight = Mathf.Max(6 * entryHeight, currentPath.keyframeCount * entryHeight);
+					Rect scrollRect = new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth, 6 * entryHeight);
+					GUI.Box(scrollRect, string.Empty);
+					float viewContentWidth = contentWidth - (2 * leftIndent);
+					keysScrollPos = GUI.BeginScrollView(scrollRect, keysScrollPos, new Rect(0, 0, viewContentWidth, viewHeight));
+					if(currentPath.keyframeCount > 0)
+					{
+						Color origGuiColor = GUI.color;
+						for(int i = 0; i < currentPath.keyframeCount; i++)
+						{
+							if(i == currentKeyframeIndex)
+							{
+								GUI.color = Color.green;
+							}
+							else
+							{
+								GUI.color = origGuiColor;
+							}
+							string kLabel = "#" + i.ToString() + ": " + currentPath.GetKeyframe(i).time.ToString("0.00") + "s";
+							if(GUI.Button(new Rect(0, (i * entryHeight), 3 * viewContentWidth / 4, entryHeight), kLabel))
+							{
+								SelectKeyframe(i);
+							}
+							if(GUI.Button(new Rect((3 * contentWidth / 4), (i * entryHeight), (viewContentWidth / 4) - 20, entryHeight), "X"))
+							{
+								DeleteKeyframe(i);
+								break;
+							}
+							//line++;
+						}
+						GUI.color = origGuiColor;
+					}
+					GUI.EndScrollView();
+					line += 6;
+					line += 0.5f;
+					if(GUI.Button(new Rect(leftIndent, contentTop + (line * entryHeight), 3 * contentWidth / 4, entryHeight), "New Key"))
+					{
+						CreateNewKeyframe();
+					}
+				}
 			}
 
 			line += 1.25f;
@@ -1532,24 +1678,133 @@ namespace CameraTools
 			Rect saveRect = new Rect(leftIndent, contentTop + (line * entryHeight), contentWidth / 2, entryHeight);
 			if(GUI.Button(saveRect, "Save"))
 			{
-				CTPersistantField.Save();
+				Save();
 			}
 
 			Rect loadRect = new Rect(saveRect);
 			loadRect.x += contentWidth / 2;
 			if(GUI.Button(loadRect, "Reload"))
 			{
-				CTPersistantField.Load();
-				guiOffsetForward = manualOffsetForward.ToString();
-				guiOffsetRight = manualOffsetRight.ToString();
-				guiOffsetUp = manualOffsetUp.ToString();
-				guiKeyZoomSpeed = keyZoomSpeed.ToString();
-				guiFreeMoveSpeed = freeMoveSpeed.ToString();
+				Load();
 			}
 			
 			//fix length
 			windowHeight = contentTop+(line*entryHeight)+entryHeight+entryHeight;
 			windowRect.height = windowHeight;// = new Rect(windowRect.x, windowRect.y, windowWidth, windowHeight);
+		}
+
+		public static string pathSaveURL = "GameData/CameraTools/paths.cfg";
+		void Save()
+		{
+			CTPersistantField.Save();
+
+			ConfigNode pathFileNode = ConfigNode.Load(pathSaveURL);
+			ConfigNode pathsNode = pathFileNode.GetNode("CAMERAPATHS");
+
+			pathsNode.ClearValues();
+
+			foreach(var path in availablePaths)
+			{
+				path.Save(pathsNode);
+			}
+			pathFileNode.Save(pathSaveURL);
+		}
+
+		void Load()
+		{
+			CTPersistantField.Load();
+			guiOffsetForward = manualOffsetForward.ToString();
+			guiOffsetRight = manualOffsetRight.ToString();
+			guiOffsetUp = manualOffsetUp.ToString();
+			guiKeyZoomSpeed = keyZoomSpeed.ToString();
+			guiFreeMoveSpeed = freeMoveSpeed.ToString();
+
+			DeselectKeyframe();
+			selectedPathIndex = -1;
+			availablePaths = new List<CameraPath>();
+			ConfigNode pathFileNode = ConfigNode.Load(pathSaveURL);
+			foreach(var node in pathFileNode.GetNode("CAMERAPATHS").GetNodes("CAMERAPATH"))
+			{
+				availablePaths.Add(CameraPath.Load(node));
+			}
+		}
+
+		void KeyframeEditorWindow()
+		{
+			float width = 300;
+			float height = 130;
+			Rect kWindowRect = new Rect(windowRect.x - width, windowRect.y + 365, width, height);
+			GUI.Box(kWindowRect, string.Empty);
+			GUI.BeginGroup(kWindowRect);
+			GUI.Label(new Rect(5, 5, 100, 25), "Keyframe #"+currentKeyframeIndex);
+			if(GUI.Button(new Rect(105, 5, 180, 25), "Revert Pos"))
+			{
+				ViewKeyframe(currentKeyframeIndex);
+			}
+			GUI.Label(new Rect(5, 35, 80, 25), "Time: ");
+			currKeyTimeString = GUI.TextField(new Rect(100, 35, 195, 25), currKeyTimeString, 16);
+			float parsed;
+			if(float.TryParse(currKeyTimeString, out parsed))
+			{
+				currentKeyframeTime = parsed;
+			}
+			bool applied = false;
+			if(GUI.Button(new Rect(100, 65, 195, 25), "Apply"))
+			{
+				Debug.Log("Applying keyframe at time: " + currentKeyframeTime);
+				currentPath.SetTransform(currentKeyframeIndex, flightCamera.transform, zoomExp, currentKeyframeTime);
+				applied = true;
+			}
+			if(GUI.Button(new Rect(100, 105, 195, 20), "Cancel"))
+			{
+				applied = true;
+			}
+			GUI.EndGroup();
+
+			if(applied)
+			{
+				DeselectKeyframe();
+			}
+		}
+
+		bool showPathSelectorWindow = false;
+		Vector2 pathSelectScrollPos;
+		void PathSelectorWindow()
+		{
+			float width = 300;
+			float height = 300;
+			float indent = 5;
+			float scrollRectSize = width - indent - indent;
+			Rect pSelectRect =  new Rect(windowRect.x - width, windowRect.y + 290, width, height);
+			GUI.Box(pSelectRect, string.Empty);
+			GUI.BeginGroup(pSelectRect);
+
+			Rect scrollRect = new Rect(indent, indent, scrollRectSize, scrollRectSize);
+			float scrollHeight = Mathf.Max(scrollRectSize, entryHeight * availablePaths.Count);
+			Rect scrollViewRect = new Rect(0, 0, scrollRectSize-20, scrollHeight);
+			pathSelectScrollPos = GUI.BeginScrollView(scrollRect, pathSelectScrollPos, scrollViewRect);
+			bool selected = false;
+			for(int i = 0; i < availablePaths.Count; i++)
+			{
+				if(GUI.Button(new Rect(0, i * entryHeight, scrollRectSize - 90, entryHeight), availablePaths[i].pathName))
+				{
+					SelectPath(i);
+					selected = true;
+				}
+				if(GUI.Button(new Rect(scrollRectSize-80, i * entryHeight, 60, entryHeight), "Delete"))
+				{
+					DeletePath(i);
+					break;
+				}
+			}
+
+			GUI.EndScrollView();
+
+			GUI.EndGroup();
+			if(selected)
+			{
+				showPathSelectorWindow = false;
+			}
 		}
 
 		void DrawIncrementButtons(Rect fieldRect, ref float val)
@@ -1769,6 +2024,263 @@ namespace CameraTools
 			RevertCamera();
 			StartDogfightCamera();
 		}
+
+		void CreateNewPath()
+		{
+			showKeyframeEditor = false;
+			availablePaths.Add(new CameraPath());
+			selectedPathIndex = availablePaths.Count - 1;
+		}
+
+		void DeletePath(int index)
+		{
+			if(index < 0) return;
+			if(index >= availablePaths.Count) return;
+			availablePaths.RemoveAt(index);
+			selectedPathIndex = -1;
+		}
+
+		void SelectPath(int index)
+		{
+			selectedPathIndex = index;
+		}
+
+		void SelectKeyframe(int index)
+		{
+			if(isPlayingPath)
+			{
+				StopPlayingPath();
+			}
+			currentKeyframeIndex = index;
+			UpdateCurrentValues();
+			showKeyframeEditor = true;
+			ViewKeyframe(currentKeyframeIndex);
+		}
+
+		void DeselectKeyframe()
+		{
+			currentKeyframeIndex = -1;
+			showKeyframeEditor = false;
+		}
+
+		void DeleteKeyframe(int index)
+		{
+			currentPath.RemoveKeyframe(index);
+			if(currentPath.keyframeCount > 0 && currentKeyframeIndex >= 0)
+			{
+				SelectKeyframe(Mathf.Clamp(currentKeyframeIndex, 0, currentPath.keyframeCount - 1));
+			}
+		}
+
+		void UpdateCurrentValues()
+		{
+			if(currentPath == null) return;
+			if(currentKeyframeIndex < 0 || currentKeyframeIndex >= currentPath.keyframeCount)
+			{
+				return;
+			}
+			CameraKeyframe currentKey = currentPath.GetKeyframe(currentKeyframeIndex);
+			currentKeyframePosition = currentKey.position;
+			currentKeyframeRotation = currentKey.rotation;
+			currentKeyframeZoom = currentKey.zoom;
+			currentKeyframeTime = currentKey.time;
+
+			currKeyTimeString = currentKeyframeTime.ToString();
+		}
+
+		void CreateNewKeyframe()
+		{
+			if(!cameraToolActive)
+			{
+				StartPathingCam();
+			}
+
+			showPathSelectorWindow = false;
+
+			float time = currentPath.keyframeCount > 0 ? currentPath.GetKeyframe(currentPath.keyframeCount - 1).time + 1 : 0;
+			currentPath.AddTransform(flightCamera.transform, zoomExp, time);
+			SelectKeyframe(currentPath.keyframeCount - 1);
+
+			if(currentPath.keyframeCount > 6)
+			{
+				keysScrollPos.y += entryHeight;
+			}
+		}
+
+		void ViewKeyframe(int index)
+		{
+			if(!cameraToolActive)
+			{
+				StartPathingCam();
+			}
+			CameraKeyframe currentKey = currentPath.GetKeyframe(index);
+			flightCamera.transform.localPosition = currentKey.position;
+			flightCamera.transform.localRotation = currentKey.rotation;
+			zoomExp = currentKey.zoom;
+		}
+
+		void StartPathingCam()
+		{
+			vessel = FlightGlobals.ActiveVessel;
+			cameraUp = -FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D()).normalized;
+			if(FlightCamera.fetch.mode == FlightCamera.Modes.ORBITAL || (FlightCamera.fetch.mode == FlightCamera.Modes.AUTO && FlightCamera.GetAutoModeForVessel(vessel) == FlightCamera.Modes.ORBITAL))
+			{
+				cameraUp = Vector3.up;
+			}
+
+			cameraParent.transform.position = vessel.transform.position+vessel.rb_velocity*Time.fixedDeltaTime;
+			cameraParent.transform.rotation = vessel.transform.rotation;
+			flightCamera.transform.parent = cameraParent.transform;
+			flightCamera.setTarget(null);
+
+
+			cameraToolActive = true;
+		}
+
+		void PlayPathingCam()
+		{
+			if(selectedPathIndex < 0)
+			{
+				RevertCamera();
+				return;
+			}
+
+			if(currentPath.keyframeCount <= 0)
+			{
+				RevertCamera();
+				return;
+			}
+
+			DeselectKeyframe();
+
+			if(!cameraToolActive)
+			{
+				StartPathingCam();
+			}
+
+			CameraTransformation firstFrame = currentPath.Evaulate(0);
+			flightCamera.transform.localPosition = firstFrame.position;
+			flightCamera.transform.localRotation = firstFrame.rotation;
+			zoomExp = firstFrame.zoom;
+
+			isPlayingPath = true;
+			pathStartTime = Time.time;
+		}
+
+		void StopPlayingPath()
+		{
+			isPlayingPath = false;
+		}
+
+		void TogglePathList()
+		{
+			showKeyframeEditor = false;
+			showPathSelectorWindow = !showPathSelectorWindow;
+		}
+
+		void UpdatePathingCam()
+		{
+			cameraParent.transform.position = vessel.transform.position+vessel.rb_velocity*Time.fixedDeltaTime;
+			cameraParent.transform.rotation = vessel.transform.rotation;
+
+			if(isPlayingPath)
+			{
+				CameraTransformation tf = currentPath.Evaulate(pathTime * currentPath.timeScale);
+				flightCamera.transform.localPosition = Vector3.Lerp(flightCamera.transform.localPosition, tf.position, currentPath.lerpRate*Time.fixedDeltaTime);
+				flightCamera.transform.localRotation = Quaternion.Slerp(flightCamera.transform.localRotation, tf.rotation, currentPath.lerpRate*Time.fixedDeltaTime);
+				zoomExp = Mathf.Lerp(zoomExp, tf.zoom, currentPath.lerpRate*Time.fixedDeltaTime);
+			}
+			else
+			{
+				//move
+				//mouse panning, moving
+				Vector3 forwardLevelAxis = flightCamera.transform.forward;//(Quaternion.AngleAxis(-90, cameraUp) * flightCamera.transform.right).normalized;
+				Vector3 rightAxis = flightCamera.transform.right;//(Quaternion.AngleAxis(90, forwardLevelAxis) * cameraUp).normalized;
+				if(enableKeypad)
+				{
+					if(Input.GetKey(fmUpKey))
+					{
+						flightCamera.transform.position += cameraUp * freeMoveSpeed * Time.fixedDeltaTime;	
+					}
+					else if(Input.GetKey(fmDownKey))
+					{
+						flightCamera.transform.position -= cameraUp * freeMoveSpeed * Time.fixedDeltaTime;	
+					}
+					if(Input.GetKey(fmForwardKey))
+					{
+						flightCamera.transform.position += forwardLevelAxis * freeMoveSpeed * Time.fixedDeltaTime;
+					}
+					else if(Input.GetKey(fmBackKey))
+					{
+						flightCamera.transform.position -= forwardLevelAxis * freeMoveSpeed * Time.fixedDeltaTime;
+					}
+					if(Input.GetKey(fmLeftKey))
+					{
+						flightCamera.transform.position -= flightCamera.transform.right * freeMoveSpeed * Time.fixedDeltaTime;
+					}
+					else if(Input.GetKey(fmRightKey))
+					{
+						flightCamera.transform.position += flightCamera.transform.right * freeMoveSpeed * Time.fixedDeltaTime;
+					}
+
+					//keyZoom
+					if(!autoFOV)
+					{
+						if(Input.GetKey(fmZoomInKey))
+						{
+							zoomExp = Mathf.Clamp(zoomExp + (keyZoomSpeed * Time.fixedDeltaTime), 1, 8);
+						}
+						else if(Input.GetKey(fmZoomOutKey))
+						{
+							zoomExp = Mathf.Clamp(zoomExp - (keyZoomSpeed * Time.fixedDeltaTime), 1, 8);
+						}
+					}
+					else
+					{
+						if(Input.GetKey(fmZoomInKey))
+						{
+							autoZoomMargin = Mathf.Clamp(autoZoomMargin + (keyZoomSpeed  * 10 * Time.fixedDeltaTime), 0, 50);
+						}
+						else if(Input.GetKey(fmZoomOutKey))
+						{
+							autoZoomMargin = Mathf.Clamp(autoZoomMargin - (keyZoomSpeed * 10 * Time.fixedDeltaTime), 0, 50);
+						}
+					}
+				}
+
+				if(Input.GetKey(KeyCode.Mouse1) && Input.GetKey(KeyCode.Mouse2))
+				{
+					flightCamera.transform.rotation = Quaternion.AngleAxis(Input.GetAxis("Mouse X") * -1.7f, flightCamera.transform.forward) * flightCamera.transform.rotation;
+				}
+				else
+				{
+					if(Input.GetKey(KeyCode.Mouse1))
+					{
+						flightCamera.transform.rotation *= Quaternion.AngleAxis(Input.GetAxis("Mouse X") * 1.7f/(zoomExp*zoomExp), Vector3.up); //*(Mathf.Abs(Mouse.delta.x)/7)
+						flightCamera.transform.rotation *= Quaternion.AngleAxis(-Input.GetAxis("Mouse Y") * 1.7f/(zoomExp*zoomExp), Vector3.right);
+						flightCamera.transform.rotation = Quaternion.LookRotation(flightCamera.transform.forward, flightCamera.transform.up);
+					}
+					if(Input.GetKey(KeyCode.Mouse2))
+					{
+						flightCamera.transform.position += flightCamera.transform.right * Input.GetAxis("Mouse X") * 2;
+						flightCamera.transform.position += forwardLevelAxis * Input.GetAxis("Mouse Y") * 2;
+					}
+				}
+				flightCamera.transform.position += flightCamera.transform.up * 10 * Input.GetAxis("Mouse ScrollWheel");
+
+			}
+
+			//zoom
+			zoomFactor = Mathf.Exp(zoomExp) / Mathf.Exp(1);
+			manualFOV = 60 / zoomFactor;
+			updateFOV = (currentFOV != manualFOV);
+			if(updateFOV)
+			{
+				currentFOV = Mathf.Lerp(currentFOV, manualFOV, 0.1f);
+				flightCamera.SetFoV(currentFOV);
+				updateFOV = false;
+			}
+		}
 		
 	}
 
@@ -1778,6 +2290,6 @@ namespace CameraTools
 	
 	public enum ReferenceModes {InitialVelocity, Surface, Orbit}
 	
-	public enum ToolModes {StationaryCamera, DogfightCamera};
+	public enum ToolModes {StationaryCamera, DogfightCamera, Pathing};
 }
 
