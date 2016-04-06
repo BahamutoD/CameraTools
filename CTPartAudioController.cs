@@ -39,7 +39,7 @@ namespace CameraTools
 			origMaxDist = audioSource.maxDistance;
 			origRolloffMode = audioSource.rolloffMode;
 			audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
-
+			audioSource.spatialBlend = 1;
 	
 		}
 

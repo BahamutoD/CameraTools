@@ -2,16 +2,16 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="CamTools.cs">
     <Files>
-      <File FileName="CamTools.cs" Line="1745" Column="36" />
-      <File FileName="CTAtmosphericAudioController.cs" Line="20" Column="36" />
+      <File FileName="CamTools.cs" Line="299" Column="8" />
+      <File FileName="CTAtmosphericAudioController.cs" Line="1" Column="1" />
       <File FileName="CTPartAudioController.cs" Line="1" Column="1" />
-      <File FileName="CTPersistantFIeld.cs" Line="40" Column="38" />
-      <File FileName="CameraPath.cs" Line="28" Column="30" />
-      <File FileName="Curve3D.cs" Line="54" Column="5" />
-      <File FileName="CameraTransformation.cs" Line="5" Column="2" />
-      <File FileName="CameraKeyframe.cs" Line="14" Column="48" />
-      <File FileName="RotationAnimation.cs" Line="34" Column="22" />
-      <File FileName="Vector3Animation.cs" Line="14" Column="23" />
+      <File FileName="CTPersistantFIeld.cs" Line="1" Column="1" />
+      <File FileName="CameraPath.cs" Line="1" Column="1" />
+      <File FileName="Curve3D.cs" Line="1" Column="1" />
+      <File FileName="CameraTransformation.cs" Line="1" Column="1" />
+      <File FileName="CameraKeyframe.cs" Line="1" Column="1" />
+      <File FileName="RotationAnimation.cs" Line="1" Column="1" />
+      <File FileName="Vector3Animation.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

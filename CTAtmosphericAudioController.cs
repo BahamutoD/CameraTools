@@ -22,6 +22,7 @@ namespace CameraTools
 			windAudioSource.minDistance = 10;
 			windAudioSource.maxDistance = 10000;
 			windAudioSource.dopplerLevel = .35f;
+			windAudioSource.spatialBlend = 1;
 			AudioClip windclip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/windloop");
 			if(!windclip)
 			{
@@ -36,6 +37,7 @@ namespace CameraTools
 			windHowlAudioSource.dopplerLevel = .5f;
 			windHowlAudioSource.pitch = 0.25f;
 			windHowlAudioSource.clip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/windhowl");
+			windHowlAudioSource.spatialBlend = 1;
 
 			windTearAudioSource = gameObject.AddComponent<AudioSource>();
 			windTearAudioSource.minDistance = 10;
@@ -43,7 +45,7 @@ namespace CameraTools
 			windTearAudioSource.dopplerLevel = 0.45f;
 			windTearAudioSource.pitch = 0.65f;
 			windTearAudioSource.clip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/windtear");
-
+			windTearAudioSource.spatialBlend = 1;
 
 			sonicBoomSource = new GameObject().AddComponent<AudioSource>();
 			sonicBoomSource.transform.parent = vessel.transform;
@@ -54,7 +56,7 @@ namespace CameraTools
 			sonicBoomSource.clip = GameDatabase.Instance.GetAudioClip("CameraTools/Sounds/sonicBoom");
 			sonicBoomSource.volume = Mathf.Clamp01(vessel.GetTotalMass()/4f);
 			sonicBoomSource.Stop();
-
+			sonicBoomSource.spatialBlend = 1;
 
 			float angleToCam = Vector3.Angle(vessel.srf_velocity, FlightCamera.fetch.mainCamera.transform.position - vessel.transform.position);
 			angleToCam = Mathf.Clamp(angleToCam, 1, 180);

@@ -962,6 +962,7 @@ namespace CameraTools
 				audioSources[i].dopplerLevel = 1;
 				audioSources[i].velocityUpdateMode = AudioVelocityUpdateMode.Fixed;
 				audioSources[i].bypassEffects = false;
+				audioSources[i].spatialBlend = 1;
 				
 				if(audioSources[i].gameObject.GetComponentInParent<Part>())
 				{
