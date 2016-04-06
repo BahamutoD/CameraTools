@@ -202,9 +202,6 @@ namespace CameraTools
 			}
 		}
 		int currentKeyframeIndex = -1;
-		Vector3 currentKeyframePosition;
-		Quaternion currentKeyframeRotation;
-		float currentKeyframeZoom;
 		float currentKeyframeTime;
 		string currKeyTimeString;
 		bool showKeyframeEditor = false;
@@ -266,9 +263,6 @@ namespace CameraTools
 			}
 			bdAiTargetField = GetAITargetField();
 			GameEvents.onVesselChange.Add(SwitchToVessel);
-
-			//pathing
-			availablePaths = new List<CameraPath>();
 		}
 
 		void OnDestroy()
@@ -1700,8 +1694,7 @@ namespace CameraTools
 
 			ConfigNode pathFileNode = ConfigNode.Load(pathSaveURL);
 			ConfigNode pathsNode = pathFileNode.GetNode("CAMERAPATHS");
-
-			pathsNode.ClearValues();
+			pathsNode.RemoveNodes("CAMERAPATH");
 
 			foreach(var path in availablePaths)
 			{
@@ -2066,6 +2059,10 @@ namespace CameraTools
 		void DeleteKeyframe(int index)
 		{
 			currentPath.RemoveKeyframe(index);
+			if(index == currentKeyframeIndex)
+			{
+				DeselectKeyframe();
+			}
 			if(currentPath.keyframeCount > 0 && currentKeyframeIndex >= 0)
 			{
 				SelectKeyframe(Mathf.Clamp(currentKeyframeIndex, 0, currentPath.keyframeCount - 1));
@@ -2080,9 +2077,6 @@ namespace CameraTools
 				return;
 			}
 			CameraKeyframe currentKey = currentPath.GetKeyframe(currentKeyframeIndex);
-			currentKeyframePosition = currentKey.position;
-			currentKeyframeRotation = currentKey.rotation;
-			currentKeyframeZoom = currentKey.zoom;
 			currentKeyframeTime = currentKey.time;
 
 			currKeyTimeString = currentKeyframeTime.ToString();
